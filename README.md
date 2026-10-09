@@ -4,7 +4,7 @@ Keyra is a self-hosted identity and API key service for companies that run more 
 
 A company deploys its own Keyra instance with Terraform, on AWS or GCP, backed by its own Postgres database. No data is shared between companies.
 
-> **Status:** early development. The base Spring Boot project, formatting, linting, and the Testcontainers test setup exist. No features are implemented yet. This document is the specification the implementation follows.
+> **Status:** early development. Milestone 1 (manager and user login) is done. This document is the specification the implementation follows.
 
 ---
 
@@ -52,7 +52,7 @@ A company deploys its own Keyra instance with Terraform, on AWS or GCP, backed b
 ### 1. User accounts
 
 - Register with email and password. Email is unique per instance and stored lowercased.
-- Password length: 12 to 128 characters. Hashed with BCrypt, cost 12.
+- Password length: 12 to 128 characters. Hashed as BCrypt(base64(SHA-256(password))), cost 12. The SHA-256 pre-hash gets around BCrypt's 72-byte input limit, so every character of a long password counts.
 - Login returns an access token and a refresh token.
 - Refresh exchanges a valid refresh token for a new access token and rotates the refresh token.
 - Logout revokes the presented refresh token.
@@ -131,8 +131,8 @@ Products verify user access tokens locally with Keyra's public keys:
 
 | Area | Endpoints |
 |---|---|
-| User auth | `POST /api/auth/register`, `/login`, `/refresh`, `/logout` |
-| Manager auth | `POST /api/manager/auth/login`, `/refresh`, `/logout` |
+| User auth | `POST /api/auth/register`, `/login`, `/refresh`, `/logout`; `GET /api/auth/me` |
+| Manager auth | `POST /api/manager/auth/login`, `/refresh`, `/logout`; `GET /api/manager/me` |
 | Managers | `POST/GET/PATCH/DELETE /api/manager/managers` (admin only) |
 | Products | `POST/GET/PATCH /api/manager/products`, `PUT /api/manager/products/{id}/managers` |
 | Keys | `POST/GET /api/manager/products/{id}/keys`, `POST .../keys/{keyId}/rotate`, `POST .../keys/{keyId}/revoke` |
@@ -201,6 +201,7 @@ All bodies are JSON. Errors use RFC 7807 problem details.
 | Database | PostgreSQL |
 | Migrations | Flyway |
 | Tests | JUnit 5, Testcontainers (real Postgres) |
+| Local database | Docker Compose (`compose.example.yaml` → `compose.yaml`, Postgres 18) |
 | Formatting | Spotless + palantir-java-format |
 | Static analysis | Error Prone |
 | Infrastructure | Terraform |
@@ -230,20 +231,30 @@ src/main/resources/db/migration/   Flyway migrations, V<n>__<description>.sql
 ### Prerequisites
 
 - JDK 21
-- Docker, running (Testcontainers starts Postgres for tests and local runs)
+- Docker with the Compose plugin, running (Compose provides the local database; Testcontainers provides one for tests)
+- Local copies of two gitignored files:
+  ```bash
+  cp compose.example.yaml compose.yaml
+  cp config/application.example.properties config/application.properties
+  ```
 
 ### Commands
 
 | Task | Command |
 |---|---|
-| Run locally (throwaway Postgres) | `./mvnw spring-boot:test-run` |
+| Run locally (persistent Postgres via Compose) | `./mvnw spring-boot:run` |
+| Run locally (throwaway Postgres via Testcontainers) | `./mvnw spring-boot:test-run` |
 | All tests | `./mvnw test` |
 | Single test | `./mvnw test -Dtest=ClassName#method` |
 | Full build + tests | `./mvnw verify` |
 | Format | `./mvnw spotless:apply` |
 | Check formatting | `./mvnw spotless:check` |
 
-`./mvnw spring-boot:run` does not work locally yet, because no datasource is configured outside Testcontainers.
+Running the app (`spring-boot:run` or `KeyraApplication` from the IDE) starts the Postgres in `compose.yaml` if it isn't running, and stops it on exit only if it started it. A container you started yourself with `docker compose up -d` is reused and left running. Data is kept in the `postgres-data` volume; `docker compose down -v` wipes it. The database listens on `127.0.0.1:5432` (database, user and password are all `keyra`).
+
+Local settings (issuer URL, JWT signing key, bootstrap admin `admin@keyra.local` / `local-admin-password`) are in `config/application.properties`, copied from `config/application.example.properties`. Spring Boot reads that file from the working directory, so it applies to every local launch, but it is not in the jar. Never copy it into a deployed image. The example uses a throwaway signing key, so tokens stop working whenever the app restarts, including DevTools restarts on save. Its comments show how to set a fixed local key instead.
+
+`spring-boot:test-run` and the integration tests use the `local` profile (`src/test/resources/application-local.properties`), which swaps Compose for Testcontainers and supplies its own settings. Tests don't need `config/application.properties`, and ignore it if present. Without `config/application.properties`, Keyra refuses to start unless `KEYRA_ISSUER_URL`, `KEYRA_JWT_PRIVATE_KEY` and `KEYRA_JWT_KEY_ID` are set.
 
 ### Rules
 
@@ -275,7 +286,7 @@ Environment variables, populated by Terraform in deployed instances:
 | Variable | Purpose |
 |---|---|
 | `KEYRA_DB_URL`, `KEYRA_DB_USER`, `KEYRA_DB_PASSWORD` | Postgres connection |
-| `KEYRA_JWT_PRIVATE_KEY`, `KEYRA_JWT_KEY_ID` | RS256 signing key and its `kid` |
+| `KEYRA_JWT_PRIVATE_KEY`, `KEYRA_JWT_KEY_ID` | RS256 signing key (PKCS#8 PEM) and its `kid` |
 | `KEYRA_ISSUER_URL` | `iss` claim / public URL |
 | `KEYRA_BOOTSTRAP_ADMIN_EMAIL`, `KEYRA_BOOTSTRAP_ADMIN_PASSWORD` | First admin, created at startup |
 | `KEYRA_KEY_ROTATION_GRACE_HOURS` | Old-secret grace period after rotation (default 24) |

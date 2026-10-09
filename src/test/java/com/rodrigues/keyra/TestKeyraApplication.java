@@ -7,6 +7,7 @@ public class TestKeyraApplication {
     public static void main(String[] args) {
         SpringApplication.from(KeyraApplication::main)
                 .with(TestcontainersConfiguration.class)
+                .withAdditionalProfiles("local")
                 .run(args);
     }
 }

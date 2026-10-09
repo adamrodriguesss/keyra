@@ -34,3 +34,36 @@ build/
 
 ### Claude Code ###
 CLAUDE.md
+CLAUDE.local.md
+.claude/
+GLOSSARY.md
+
+### Local Docker Compose ###
+compose.yaml
+
+### Local app config (copy config/application.example.properties) ###
+config/application.properties
+
+### Secrets ###
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+
+### Terraform ###
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+### Logs ###
+*.log
