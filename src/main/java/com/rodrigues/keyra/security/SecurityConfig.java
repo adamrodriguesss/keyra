@@ -71,6 +71,8 @@ public class SecurityConfig {
     SecurityFilterChain publicChain(HttpSecurity http) {
         http.authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.GET, "/.well-known/jwks.json")
                 .permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/keys/validate")
+                .permitAll()
                 .requestMatchers("/error")
                 .permitAll()
                 .anyRequest()

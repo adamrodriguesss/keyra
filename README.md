@@ -4,7 +4,7 @@ Keyra is a self-hosted identity and API key service for companies that run more 
 
 A company deploys its own Keyra instance with Terraform, on AWS or GCP, backed by its own Postgres database. No data is shared between companies.
 
-> **Status:** early development. Milestones 1 (manager and user login) and 2 (products and managers) are done. This document is the specification the implementation follows.
+> **Status:** early development. Milestones 1 (manager and user login), 2 (products and managers) and 3 (API keys) are done. This document is the specification the implementation follows.
 
 ---
 
@@ -78,7 +78,7 @@ A company deploys its own Keyra instance with Terraform, on AWS or GCP, backed b
   - a list of scopes (free-form strings such as `orders:read`)
   - an expiry: default 90 days, maximum 365 days, or none if an admin explicitly allows it
   - a rate limit in requests per minute (default 60)
-  - a status: `ACTIVE`, `REVOKED`, or `EXPIRED`
+  - a status: `ACTIVE`, `REVOKED`, or `EXPIRED` (`EXPIRED` is derived from `expires_at`, not stored)
 - Format: `kyr_<prefix>_<secret>`. The prefix is 8 characters; the secret is 32 random bytes, base62-encoded.
 - The full key is shown exactly once, at creation or rotation. Keyra stores only the prefix and a SHA-256 hash.
 - **Rotation:** issues a new secret; the old secret stays valid for a grace period (`KEYRA_KEY_ROTATION_GRACE_HOURS`, default 24).
@@ -174,6 +174,7 @@ Disabling or deleting an account revokes its refresh tokens immediately, but an 
 
 - Should refresh tokens be bound to a device or IP in a later version?
 - Should Keyra offer an optional rate-limit counter so products don't need their own?
+- The audit `expire` event needs a trigger (for example a scheduled job), since expiry is derived rather than stored.
 - Is a per-product scope catalog needed, or are free-form scope strings enough?
 
 ---

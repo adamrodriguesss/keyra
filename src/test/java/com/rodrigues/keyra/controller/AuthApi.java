@@ -1,6 +1,8 @@
 package com.rodrigues.keyra.controller;
 
 import com.jayway.jsonpath.JsonPath;
+import java.io.UncheckedIOException;
+import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import org.springframework.http.HttpMethod;
@@ -117,8 +119,30 @@ final class AuthApi {
         return idOf(post("/api/manager/products", productBody(uniqueSlug()), adminToken()));
     }
 
+    /** Creates a key with default settings as the given manager and returns the full key. */
+    String createKey(String productId, String accessToken) {
+        MvcTestResult created = post("/api/manager/products/" + productId + "/keys", """
+                {"name": "ci", "scopes": ["orders:read"]}""", accessToken);
+        return JsonPath.read(body(created), "$.key");
+    }
+
+    /** Validates a key and returns the raw JSON response body. */
+    String validateBody(String slug, String key) {
+        MvcTestResult result = post("/api/v1/keys/validate", """
+                {"product": "%s", "key": "%s"}""".formatted(slug, key));
+        return body(result);
+    }
+
+    static String body(MvcTestResult result) {
+        try {
+            return result.getResponse().getContentAsString(StandardCharsets.UTF_8);
+        } catch (UnsupportedEncodingException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
     static String idOf(MvcTestResult result) {
-        return JsonPath.read(new String(result.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8), "$.id");
+        return JsonPath.read(body(result), "$.id");
     }
 
     static String credentials(String email, String password) {
@@ -136,7 +160,7 @@ final class AuthApi {
     record Tokens(String accessToken, String refreshToken) {
 
         static Tokens from(MvcTestResult result) {
-            String body = new String(result.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8);
+            String body = body(result);
             return new Tokens(JsonPath.read(body, "$.accessToken"), JsonPath.read(body, "$.refreshToken"));
         }
     }

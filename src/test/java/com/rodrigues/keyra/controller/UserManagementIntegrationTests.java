@@ -6,7 +6,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.jayway.jsonpath.JsonPath;
 import com.rodrigues.keyra.IntegrationTest;
-import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,7 +27,7 @@ class UserManagementIntegrationTests {
 
     private String userId(String userAccessToken) {
         var me = api.get("/api/auth/me", userAccessToken);
-        return JsonPath.read(new String(me.getResponse().getContentAsByteArray(), StandardCharsets.UTF_8), "$.id");
+        return JsonPath.read(AuthApi.body(me), "$.id");
     }
 
     @Test
