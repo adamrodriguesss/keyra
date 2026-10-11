@@ -11,7 +11,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 
 class ManagerRealmTests {
 
-    private final ManagerRealm realm = new ManagerRealm(null, null, null, null);
+    private final ManagerRealm realm = new ManagerRealm(null, null, null, null, null);
 
     @Test
     void roleClaimWrittenAtLoginBecomesARoleAuthority() {

@@ -60,5 +60,11 @@ public class RefreshTokenService {
                 .ifPresent(token -> token.revoke(clock.instant()));
     }
 
+    /** Revokes every active refresh token of an account, e.g. when it is disabled or deleted. */
+    @Transactional
+    public void revokeAll(UUID subjectId, SubjectType type) {
+        repository.revokeAll(subjectId, type, clock.instant());
+    }
+
     public record IssuedRefreshToken(String value, Duration lifetime) {}
 }

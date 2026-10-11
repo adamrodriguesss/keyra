@@ -25,4 +25,12 @@ public class Manager extends Account {
     public ManagerRole getRole() {
         return role;
     }
+
+    public void setRole(ManagerRole role) {
+        this.role = role;
+    }
+
+    public boolean isActiveAdmin() {
+        return role == ManagerRole.ADMIN && isActive();
+    }
 }

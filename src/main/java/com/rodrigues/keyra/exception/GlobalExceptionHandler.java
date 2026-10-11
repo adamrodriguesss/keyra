@@ -43,8 +43,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, "You do not have access to this resource.");
     }
 
-    @ExceptionHandler(EmailAlreadyRegisteredException.class)
-    ProblemDetail handleConflict(EmailAlreadyRegisteredException e) {
+    @ExceptionHandler(ConflictException.class)
+    ProblemDetail handleConflict(ConflictException e) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, e.getMessage());
     }
 

@@ -3,7 +3,9 @@ package com.rodrigues.keyra.service;
 import com.rodrigues.keyra.dto.LoginRequest;
 import com.rodrigues.keyra.dto.TokenResponse;
 import com.rodrigues.keyra.entity.Account;
+import com.rodrigues.keyra.entity.AccountStatus;
 import com.rodrigues.keyra.entity.SubjectType;
+import com.rodrigues.keyra.exception.EmailAlreadyRegisteredException;
 import com.rodrigues.keyra.exception.InvalidCredentialsException;
 import com.rodrigues.keyra.exception.InvalidRefreshTokenException;
 import com.rodrigues.keyra.exception.NotFoundException;
@@ -13,15 +15,16 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * An account realm: users or managers. Authenticates the realm's accounts and issues their sessions (an
- * access token plus a rotating refresh token). A subclass only says what is different about its realm:
- * which claims its tokens carry and the authorities those claims grant.
+ * An account realm: users or managers. Owns the realm's accounts (creation, status, deletion) and their
+ * sessions (an access token plus a rotating refresh token). A subclass only says what is different about
+ * its realm: which claims its tokens carry and the authorities those claims grant.
  */
 public abstract class Realm<A extends Account> {
 
@@ -83,8 +86,44 @@ public abstract class Realm<A extends Account> {
     /** The account an access token from this realm was issued to. */
     @Transactional(readOnly = true)
     public A account(Jwt accessToken) {
-        return accounts.findById(UUID.fromString(accessToken.getSubject()))
-                .orElseThrow(() -> new NotFoundException("Account not found."));
+        return find(UUID.fromString(accessToken.getSubject()));
+    }
+
+    @Transactional(readOnly = true)
+    public A find(UUID id) {
+        return accounts.findById(id).orElseThrow(() -> new NotFoundException("Account not found."));
+    }
+
+    /**
+     * An inactive account has no sessions: its refresh tokens are revoked, and {@link #login}/{@link
+     * #refresh} refuse it. An access token already issued stays valid until it expires.
+     */
+    @Transactional
+    public A setStatus(UUID id, AccountStatus status) {
+        A account = find(id);
+        account.setStatus(status);
+        if (!account.isActive()) {
+            refreshTokens.revokeAll(id, type);
+        }
+        return account;
+    }
+
+    @Transactional
+    public void delete(A account) {
+        refreshTokens.revokeAll(account.getId(), type);
+        accounts.delete(account);
+    }
+
+    /**
+     * Relies on the unique constraint rather than checking first, so a duplicate email costs the same
+     * BCrypt time (spent by the caller) as a new one and can't be detected by timing.
+     */
+    protected A saveNew(A account) {
+        try {
+            return accounts.saveAndFlush(account);
+        } catch (DataIntegrityViolationException e) {
+            throw new EmailAlreadyRegisteredException();
+        }
     }
 
     /** Authorities granted by an access token from this realm. Read by the realm's filter chain. */

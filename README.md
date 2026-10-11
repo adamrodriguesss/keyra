@@ -4,7 +4,7 @@ Keyra is a self-hosted identity and API key service for companies that run more 
 
 A company deploys its own Keyra instance with Terraform, on AWS or GCP, backed by its own Postgres database. No data is shared between companies.
 
-> **Status:** early development. Milestone 1 (manager and user login) is done. This document is the specification the implementation follows.
+> **Status:** early development. Milestones 1 (manager and user login) and 2 (products and managers) are done. This document is the specification the implementation follows.
 
 ---
 
@@ -134,12 +134,15 @@ Products verify user access tokens locally with Keyra's public keys:
 | User auth | `POST /api/auth/register`, `/login`, `/refresh`, `/logout`; `GET /api/auth/me` |
 | Manager auth | `POST /api/manager/auth/login`, `/refresh`, `/logout`; `GET /api/manager/me` |
 | Managers | `POST/GET/PATCH/DELETE /api/manager/managers` (admin only) |
+| Users | `PATCH /api/manager/users/{id}` (any manager; enable or disable a user) |
 | Products | `POST/GET/PATCH /api/manager/products`, `PUT /api/manager/products/{id}/managers` |
 | Keys | `POST/GET /api/manager/products/{id}/keys`, `POST .../keys/{keyId}/rotate`, `POST .../keys/{keyId}/revoke` |
 | Validation | `POST /api/v1/keys/validate` |
 | Discovery | `GET /.well-known/jwks.json`, `GET /actuator/health` |
 
 All bodies are JSON. Errors use RFC 7807 problem details.
+
+Disabling or deleting an account revokes its refresh tokens immediately, but an access token already issued stays valid until it expires (15 minutes at most). The same applies to a manager whose role is changed: the old role is honored until their access token expires.
 
 ### Data model (initial)
 
