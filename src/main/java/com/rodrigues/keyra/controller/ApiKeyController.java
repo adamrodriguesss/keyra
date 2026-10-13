@@ -41,6 +41,18 @@ public class ApiKeyController {
         return apiKeys.create(realm.actor(jwt), productId, request);
     }
 
+    @PostMapping("/{keyId}/rotate")
+    public CreatedApiKeyResponse rotate(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID productId, @PathVariable UUID keyId) {
+        return apiKeys.rotate(realm.actor(jwt), productId, keyId);
+    }
+
+    @PostMapping("/{keyId}/revoke")
+    public ApiKeyResponse revoke(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID productId, @PathVariable UUID keyId) {
+        return apiKeys.revoke(realm.actor(jwt), productId, keyId);
+    }
+
     @GetMapping
     public List<ApiKeyResponse> list(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID productId) {
         return apiKeys.list(realm.actor(jwt), productId);

@@ -5,8 +5,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.jayway.jsonpath.JsonPath;
 import com.rodrigues.keyra.IntegrationTest;
 import com.rodrigues.keyra.MutableClock;
+import com.rodrigues.keyra.entity.AuditAction;
+import com.rodrigues.keyra.entity.AuditActorType;
+import com.rodrigues.keyra.entity.AuditEvent;
+import com.rodrigues.keyra.repository.AuditEventRepository;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +29,9 @@ class ApiKeyIntegrationTests {
 
     @Autowired
     MutableClock clock;
+
+    @Autowired
+    AuditEventRepository auditEvents;
 
     AuthApi api;
     String admin;
@@ -140,5 +149,146 @@ class ApiKeyIntegrationTests {
         String key = JsonPath.read(
                 AuthApi.body(api.post(keysPath(), "{\"name\": \"x\", \"neverExpires\": true}", admin)), "$.key");
         assertThat(api.validateBody(slug, key)).contains("\"valid\":true").contains("\"expiresAt\":null");
+    }
+
+    static final Duration GRACE = Duration.ofHours(24);
+
+    String managerToken() {
+        return manager.tokens().accessToken();
+    }
+
+    /** Creates a key, returning its full secret and id. */
+    String[] createKeyAndId() {
+        String body = AuthApi.body(api.post(keysPath(), "{\"name\": \"ci\"}", managerToken()));
+        return new String[] {JsonPath.read(body, "$.key"), JsonPath.read(body, "$.apiKey.id")};
+    }
+
+    String rotate(String keyId) {
+        var result = api.post(keysPath() + "/" + keyId + "/rotate", "", managerToken());
+        assertThat(result).hasStatusOk();
+        return JsonPath.read(AuthApi.body(result), "$.key");
+    }
+
+    @Test
+    void rotationKeepsTheOldSecretValidOnlyForTheGracePeriod() {
+        String[] created = createKeyAndId();
+        String oldKey = created[0];
+        var result = api.post(keysPath() + "/" + created[1] + "/rotate", "", managerToken());
+        assertThat(result)
+                .hasStatusOk()
+                .bodyJson()
+                .hasPathSatisfying("$.apiKey.id", v -> v.assertThat().isEqualTo(created[1]))
+                .hasPathSatisfying("$.apiKey.prefix", v -> v.assertThat().isEqualTo(oldKey.substring(4, 12)));
+        String newKey = JsonPath.read(AuthApi.body(result), "$.key");
+        assertThat(newKey).isNotEqualTo(oldKey).startsWith(oldKey.substring(0, 12));
+
+        assertThat(api.validateBody(slug, oldKey)).contains("\"valid\":true");
+        assertThat(api.validateBody(slug, newKey)).contains("\"valid\":true");
+        clock.advance(GRACE.plusSeconds(1));
+        assertThat(api.validateBody(slug, oldKey)).isEqualTo(INVALID);
+        assertThat(api.validateBody(slug, newKey)).contains("\"valid\":true");
+    }
+
+    @Test
+    void rotatingAgainInsideTheGracePeriodDropsTheFirstSecret() {
+        String[] created = createKeyAndId();
+        String second = rotate(created[1]);
+        String third = rotate(created[1]);
+        assertThat(api.validateBody(slug, created[0])).isEqualTo(INVALID);
+        assertThat(api.validateBody(slug, second)).contains("\"valid\":true");
+        assertThat(api.validateBody(slug, third)).contains("\"valid\":true");
+    }
+
+    @Test
+    void revokingKillsEverySecretAndFurtherChangesConflict() {
+        String[] created = createKeyAndId();
+        String newKey = rotate(created[1]);
+        String revokePath = keysPath() + "/" + created[1] + "/revoke";
+        assertThat(api.post(revokePath, "", managerToken()))
+                .hasStatusOk()
+                .bodyJson()
+                .hasPathSatisfying("$.status", v -> v.assertThat().isEqualTo("REVOKED"));
+        assertThat(api.validateBody(slug, created[0])).isEqualTo(INVALID);
+        assertThat(api.validateBody(slug, newKey)).isEqualTo(INVALID);
+        assertThat(api.get(keysPath(), managerToken()))
+                .bodyJson()
+                .hasPathSatisfying("$[0].status", v -> v.assertThat().isEqualTo("REVOKED"));
+
+        assertThat(api.post(revokePath, "", managerToken())).hasStatus(HttpStatus.CONFLICT);
+        assertThat(api.post(keysPath() + "/" + created[1] + "/rotate", "", managerToken()))
+                .hasStatus(HttpStatus.CONFLICT);
+    }
+
+    @Test
+    void rotatingAnExpiredKeyConflictsButStillAuditsTheExpiry() {
+        String[] created = createKeyAndId();
+        clock.advance(Duration.ofDays(91));
+        String fresh = api.managerLogin(manager.email(), AuthApi.PASSWORD).accessToken();
+        assertThat(api.post(keysPath() + "/" + created[1] + "/rotate", "", fresh))
+                .hasStatus(HttpStatus.CONFLICT);
+        assertThat(expiryEvents(created[1])).hasSize(1);
+    }
+
+    List<AuditEvent> expiryEvents(String keyId) {
+        return auditEvents.findAllByTargetId(UUID.fromString(keyId)).stream()
+                .filter(e -> e.getAction() == AuditAction.EXPIRE)
+                .toList();
+    }
+
+    @Test
+    void expiryIsAuditedOnceBySystemAtTheExpiryTimeWhenValidationFirstSeesIt() {
+        String body = AuthApi.body(api.post(keysPath(), "{\"name\": \"ci\"}", managerToken()));
+        String key = JsonPath.read(body, "$.key");
+        String keyId = JsonPath.read(body, "$.apiKey.id");
+        Instant expiresAt = Instant.parse(JsonPath.read(body, "$.apiKey.expiresAt"));
+        clock.advance(Duration.ofDays(91));
+        assertThat(expiryEvents(keyId)).isEmpty();
+
+        assertThat(api.validateBody(slug, key)).isEqualTo(INVALID);
+        assertThat(api.validateBody(slug, key)).isEqualTo(INVALID);
+        assertThat(expiryEvents(keyId)).singleElement().satisfies(e -> {
+            assertThat(e.getActorId()).isNull();
+            assertThat(e.getActorType()).isEqualTo(AuditActorType.SYSTEM);
+            assertThat(e.getCreatedAt()).isEqualTo(expiresAt);
+        });
+    }
+
+    @Test
+    void listingAuditsExpiryOnceAndRevokedKeysNeverExpire() {
+        String expiring = createKeyAndId()[1];
+        String revoked = createKeyAndId()[1];
+        api.post(keysPath() + "/" + revoked + "/revoke", "", managerToken());
+        clock.advance(Duration.ofDays(91));
+        String fresh = api.managerLogin(manager.email(), AuthApi.PASSWORD).accessToken();
+        api.get(keysPath(), fresh);
+        api.get(keysPath(), fresh);
+        assertThat(expiryEvents(expiring)).hasSize(1);
+        assertThat(expiryEvents(revoked)).isEmpty();
+    }
+
+    @Test
+    void rotateAndRevokeAreLimitedToTheKeysOwnProductAndAssignedManagers() {
+        String keyId = createKeyAndId()[1];
+        var other = api.createManagerAndLogin("MANAGER").tokens().accessToken();
+        for (String action : new String[] {"rotate", "revoke"}) {
+            assertThat(api.post(keysPath() + "/" + keyId + "/" + action, "", other))
+                    .hasStatus(HttpStatus.NOT_FOUND);
+        }
+        String otherProduct =
+                AuthApi.idOf(api.post("/api/manager/products", AuthApi.productBody(AuthApi.uniqueSlug()), admin));
+        assertThat(api.post("/api/manager/products/" + otherProduct + "/keys/" + keyId + "/revoke", "", admin))
+                .hasStatus(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void createRotateAndRevokeAreAudited() {
+        String keyId = createKeyAndId()[1];
+        rotate(keyId);
+        api.post(keysPath() + "/" + keyId + "/revoke", "", managerToken());
+        var events = auditEvents.findAllByTargetId(UUID.fromString(keyId));
+        assertThat(events)
+                .extracting(AuditEvent::getAction)
+                .containsExactlyInAnyOrder(AuditAction.CREATE, AuditAction.ROTATE, AuditAction.REVOKE);
+        assertThat(events).extracting(AuditEvent::getActorId).containsOnly(UUID.fromString(manager.id()));
     }
 }

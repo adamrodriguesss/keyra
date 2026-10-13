@@ -18,7 +18,11 @@ public final class ApiKeys {
     public record Generated(String prefix, String key, String hash) {}
 
     public static Generated generate() {
-        String prefix = randomBase62(8);
+        return generate(randomBase62(8));
+    }
+
+    /** A new secret under an existing prefix, for rotation. */
+    public static Generated generate(String prefix) {
         String key = "kyr_" + prefix + "_" + randomBase62(43);
         return new Generated(prefix, key, hash(key));
     }

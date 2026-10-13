@@ -4,7 +4,7 @@ Keyra is a self-hosted identity and API key service for companies that run more 
 
 A company deploys its own Keyra instance with Terraform, on AWS or GCP, backed by its own Postgres database. No data is shared between companies.
 
-> **Status:** early development. Milestones 1 (manager and user login), 2 (products and managers) and 3 (API keys) are done. This document is the specification the implementation follows.
+> **Status:** early development. Milestones 1 (manager and user login), 2 (products and managers), 3 (API keys) and 4 (key lifecycle) are done. This document is the specification the implementation follows.
 
 ---
 
@@ -81,9 +81,10 @@ A company deploys its own Keyra instance with Terraform, on AWS or GCP, backed b
   - a status: `ACTIVE`, `REVOKED`, or `EXPIRED` (`EXPIRED` is derived from `expires_at`, not stored)
 - Format: `kyr_<prefix>_<secret>`. The prefix is 8 characters; the secret is 32 random bytes, base62-encoded.
 - The full key is shown exactly once, at creation or rotation. Keyra stores only the prefix and a SHA-256 hash.
-- **Rotation:** issues a new secret; the old secret stays valid for a grace period (`KEYRA_KEY_ROTATION_GRACE_HOURS`, default 24).
-- **Revocation:** immediate and irreversible.
-- Every lifecycle event (create, rotate, revoke, expire) is written to `audit_events` with the acting manager and a timestamp.
+- **Rotation:** issues a new secret under the same key id and prefix; the old secret stays valid for a grace period (`KEYRA_KEY_ROTATION_GRACE_HOURS`, default 24). Only one old secret is kept: rotating again inside the grace period ends the older one immediately.
+- **Revocation:** immediate and irreversible. Both the current and any old secret stop validating.
+- Only an `ACTIVE` key can be rotated or revoked; a revoked or expired key returns `409`. A key on a product the manager can't reach returns `404`.
+- Every lifecycle event (create, rotate, revoke, expire) is written to `audit_events` with a timestamp. Create, rotate and revoke record the acting manager. Expiry is derived, so it is recorded with actor type `SYSTEM` (no actor id) the first time any request finds the key expired (validation, listing, or a rotate/revoke attempt), dated at the key's `expires_at`. It is recorded exactly once per key; a revoked key never gets an expire event.
 
 ### 5. Key validation
 
@@ -106,7 +107,6 @@ POST /api/v1/keys/validate
 ```
 
 - A key that is unknown, expired, revoked, on a deactivated product, or belongs to a different product returns `{"valid": false}` with no further detail.
-- The endpoint is rate limited per source IP to resist guessing.
 - Products should cache positive results for 30 to 60 seconds.
 
 ### 6. User token verification
@@ -151,7 +151,7 @@ Disabling or deleting an account revokes its refresh tokens immediately, but an 
 - `refresh_tokens(id, subject_id, subject_type, token_hash, expires_at, revoked_at)`
 - `products(id, name, slug, description, active, created_at)`
 - `product_managers(product_id, manager_id)`
-- `api_keys(id, product_id, name, prefix, key_hash, previous_key_hash, previous_valid_until, scopes, rate_limit_per_minute, expires_at, status, created_by, created_at, revoked_at)`
+- `api_keys(id, product_id, name, prefix, key_hash, previous_key_hash, previous_valid_until, scopes, rate_limit_per_minute, expires_at, status, created_by, created_at, revoked_at, expiry_audited)`
 - `audit_events(id, actor_id, actor_type, action, target_type, target_id, created_at)`
 
 ### Non-functional requirements
@@ -174,7 +174,6 @@ Disabling or deleting an account revokes its refresh tokens immediately, but an 
 
 - Should refresh tokens be bound to a device or IP in a later version?
 - Should Keyra offer an optional rate-limit counter so products don't need their own?
-- The audit `expire` event needs a trigger (for example a scheduled job), since expiry is derived rather than stored.
 - Is a per-product scope catalog needed, or are free-form scope strings enough?
 
 ---

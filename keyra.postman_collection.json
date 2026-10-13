@@ -39,6 +39,10 @@
     {
       "key": "apiKey",
       "value": ""
+    },
+    {
+      "key": "keyId",
+      "value": ""
     }
   ],
   "item": [
@@ -922,7 +926,8 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.collectionVariables.set('apiKey', pm.response.json().key);"
+                  "pm.collectionVariables.set('apiKey', pm.response.json().key);",
+                  "pm.collectionVariables.set('keyId', pm.response.json().apiKey.id);"
                 ]
               }
             }
@@ -944,6 +949,81 @@
                 "products",
                 "{{productId}}",
                 "keys"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Rotate key",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/manager/products/{{productId}}/keys/{{keyId}}/rotate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "manager",
+                "products",
+                "{{productId}}",
+                "keys",
+                "{{keyId}}",
+                "rotate"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('apiKey', pm.response.json().key);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Revoke key",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/manager/products/{{productId}}/keys/{{keyId}}/revoke",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "manager",
+                "products",
+                "{{productId}}",
+                "keys",
+                "{{keyId}}",
+                "revoke"
               ]
             },
             "auth": {

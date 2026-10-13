@@ -57,6 +57,20 @@ public class ApiKey {
     @Column(nullable = false, length = 16)
     private ApiKeyStatus status;
 
+    /** The secret before the last rotation, still accepted until {@code previousValidUntil}. */
+    @Column(name = "previous_key_hash", length = 64)
+    private String previousKeyHash;
+
+    @Column(name = "previous_valid_until")
+    private Instant previousValidUntil;
+
+    @Column(name = "revoked_at")
+    private Instant revokedAt;
+
+    /** Written only by {@code ApiKeyRepository#markExpiryAudited}, never by Hibernate. */
+    @Column(name = "expiry_audited", nullable = false, insertable = false, updatable = false)
+    private boolean expiryAudited;
+
     @Column(name = "created_by", updatable = false)
     private UUID createdBy;
 
@@ -92,12 +106,42 @@ public class ApiKey {
      * and its product is active.
      */
     public boolean accepts(String keyHash, String productSlug, Instant now) {
-        return MessageDigest.isEqual(
-                        this.keyHash.getBytes(StandardCharsets.UTF_8), keyHash.getBytes(StandardCharsets.UTF_8))
+        return (matches(this.keyHash, keyHash)
+                        || previousKeyHash != null
+                                && previousValidUntil.isAfter(now)
+                                && matches(previousKeyHash, keyHash))
                 && status == ApiKeyStatus.ACTIVE
                 && (expiresAt == null || expiresAt.isAfter(now))
                 && product.isActive()
                 && product.getSlug().equals(productSlug);
+    }
+
+    /** Active but past its expiry. Revoked keys never count as expired. */
+    public boolean isExpired(Instant now) {
+        return status == ApiKeyStatus.ACTIVE && expiresAt != null && !expiresAt.isAfter(now);
+    }
+
+    public boolean isExpiryAudited() {
+        return expiryAudited;
+    }
+
+    private static boolean matches(String stored, String candidate) {
+        return MessageDigest.isEqual(
+                stored.getBytes(StandardCharsets.UTF_8), candidate.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /** Swaps in a new secret; the current one keeps working until {@code graceUntil}, replacing any older one. */
+    public void rotate(String newHash, Instant graceUntil) {
+        previousKeyHash = keyHash;
+        previousValidUntil = graceUntil;
+        keyHash = newHash;
+    }
+
+    public void revoke(Instant now) {
+        status = ApiKeyStatus.REVOKED;
+        revokedAt = now;
+        previousKeyHash = null;
+        previousValidUntil = null;
     }
 
     public UUID getId() {

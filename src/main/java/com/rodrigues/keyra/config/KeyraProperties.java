@@ -16,7 +16,8 @@ public record KeyraProperties(
         @NotBlank String issuerUrl,
         @Valid @DefaultValue Jwt jwt,
         @Valid @DefaultValue Bootstrap bootstrap,
-        @Valid @DefaultValue Tokens tokens) {
+        @Valid @DefaultValue Tokens tokens,
+        @Valid @DefaultValue Keys keys) {
 
     /**
      * @param privateKey PKCS#8 PEM RSA private key used to sign access tokens
@@ -28,6 +29,9 @@ public record KeyraProperties(
 
     /** The first admin, created at startup when no managers exist yet. */
     public record Bootstrap(String adminEmail, String adminPassword) {}
+
+    /** @param rotationGrace how long a rotated key's old secret keeps validating */
+    public record Keys(@NotNull @DefaultValue("24h") Duration rotationGrace) {}
 
     public record Tokens(
             @NotNull @DefaultValue("15m") Duration accessTokenTtl,

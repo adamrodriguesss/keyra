@@ -25,11 +25,7 @@ public record ApiKeyResponse(
                 key.getScopes(),
                 key.getRateLimitPerMinute(),
                 key.getExpiresAt(),
-                key.getStatus() == ApiKeyStatus.ACTIVE
-                                && key.getExpiresAt() != null
-                                && !key.getExpiresAt().isAfter(now)
-                        ? ApiKeyStatus.EXPIRED
-                        : key.getStatus(),
+                key.isExpired(now) ? ApiKeyStatus.EXPIRED : key.getStatus(),
                 key.getCreatedAt());
     }
 }
