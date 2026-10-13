@@ -4,7 +4,7 @@ Keyra is a self-hosted identity and API key service for companies that run more 
 
 A company deploys its own Keyra instance with Terraform, on AWS or GCP, backed by its own Postgres database. No data is shared between companies.
 
-> **Status:** early development. Milestones 1 (manager and user login), 2 (products and managers), 3 (API keys) and 4 (key lifecycle) are done. This document is the specification the implementation follows.
+> **Status:** early development. Milestones 1 (manager and user login), 2 (products and managers), 3 (API keys) and 4 (key lifecycle) are done; 5 (Terraform on GCP) is in progress. This document is the specification the implementation follows.
 
 ---
 
@@ -167,8 +167,8 @@ Disabling or deleting an account revokes its refresh tokens immediately, but an 
 2. **Products and managers.** Product CRUD, manager management, manager-to-product assignment.
 3. **API keys.** Creation, hashing, listing, and the validation endpoint.
 4. **Key lifecycle.** Rotation with grace period, revocation, expiry handling, audit events, rate limit fields.
-5. **Terraform on AWS.** Module, secrets wiring, and a working end-to-end deployment.
-6. **Terraform on GCP.** Same module interface on Cloud Run and Cloud SQL.
+5. **Terraform on GCP.** Module on Cloud Run with Cloud SQL or your own Postgres, secrets wiring, and a working end-to-end deployment.
+6. **Terraform on AWS.** Same module interface on ECS Fargate and RDS.
 
 ### Open questions
 
@@ -225,6 +225,9 @@ com.rodrigues.keyra
 └── exception/    Exceptions and the RFC 7807 handler.
 
 src/main/resources/db/migration/   Flyway migrations, V<n>__<description>.sql
+Dockerfile                          Container image (configured only by KEYRA_* env vars)
+infra/modules/keyra/gcp/            Terraform module for GCP (tests/ runs offline with terraform test)
+infra/examples/gcp/                 Root module that deploys one instance
 ```
 
 ---
@@ -250,6 +253,8 @@ src/main/resources/db/migration/   Flyway migrations, V<n>__<description>.sql
 | All tests | `./mvnw test` |
 | Single test | `./mvnw test -Dtest=ClassName#method` |
 | Full build + tests | `./mvnw verify` |
+| Container image | `docker build -t keyra .` |
+| Terraform format / module tests | `terraform fmt -recursive infra`, `terraform -chdir=infra/modules/keyra/gcp test` |
 | Format | `./mvnw spotless:apply` |
 | Check formatting | `./mvnw spotless:check` |
 
@@ -282,6 +287,62 @@ Keyra ships a reusable Terraform module, `modules/keyra`, with the same input va
 
 Core inputs: instance name, region, container image, replica count, database size, and the bootstrap admin email and password. Applying the module outputs the public URL of the new instance.
 
+Secrets never reach Terraform state: the JWT signing key and database password are generated as ephemeral values and written to the secret manager through write-only attributes, and the bootstrap admin password is an ephemeral input. This needs Terraform 1.11 or later.
+
+### Deploy to GCP
+
+The module (`infra/modules/keyra/gcp`) runs Keyra on Cloud Run with a public `https://<name>-<project-number>.<region>.run.app` URL, which is also the token issuer. `infra/examples/gcp` shows how to use it.
+
+1. Prerequisites: Terraform 1.11+, `gcloud` logged in with rights to create the resources, Docker.
+2. Build and push the image:
+   ```bash
+   gcloud artifacts repositories create keyra --repository-format=docker --location=<region>
+   gcloud auth configure-docker <region>-docker.pkg.dev
+   docker build -t <region>-docker.pkg.dev/<project>/keyra/keyra:<version> .
+   docker push <region>-docker.pkg.dev/<project>/keyra/keyra:<version>
+   ```
+3. Create a GCS bucket for Terraform state, copy `terraform.tfvars.example` to `terraform.tfvars` and fill it in, then:
+   ```bash
+   cd infra/examples/gcp
+   export TF_VAR_bootstrap_admin_password='...'   # 12-128 characters; needed on every plan/apply
+   terraform init -backend-config="bucket=<state-bucket>"
+   terraform apply
+   ```
+4. Smoke test against the `url` output: `GET /actuator/health` and `/.well-known/jwks.json` respond, the bootstrap admin can log in, and a key created for a new product validates.
+
+Cloud SQL and the Cloud Run service have deletion protection on by default (`deletion_protection = false` to tear an instance down). Bump `jwt_key_version` or `db_password_version` to rotate those secrets.
+
+`terraform destroy` can stop at the subnet with `resourceInUseByAnotherResource`: Cloud Run's VPC egress holds internal addresses in it that Google releases an hour or two after the service is deleted. Everything billable is already gone at that point; run `terraform destroy` again later to remove the network.
+
+#### Database and network modes
+
+| Mode | Inputs | What the module creates |
+|---|---|---|
+| Cloud SQL (default) | none | VPC, private-IP-only Cloud SQL with TLS required, backups and point-in-time recovery |
+| Your own Postgres, public | `external_database` | Nothing for the database; Cloud Run connects over the internet |
+| Your own Postgres, IP allowlist | `external_database`, `egress = { static_ip = true }` | VPC and Cloud NAT with a reserved IP (`egress_ip` output) that all egress uses |
+| Your own Postgres, private network | `external_database`, `egress = { network, subnetwork }` | Direct VPC egress into your network; you own routing, peering/VPN and firewall rules |
+
+With the IP allowlist mode, reserve the address and allowlist it before the full apply, because Keyra can't start until your database accepts it:
+
+```bash
+terraform apply -target=module.keyra.google_compute_address.egress
+terraform output egress_ip   # add to your database's allowlist, then run terraform apply
+```
+
+`external_database` takes a `jdbc_url` (must set `sslmode=require`, `verify-ca` or `verify-full`), a `username`, and `password_secret_id`: an existing Secret Manager secret holding the password. The module only grants Cloud Run read access to it and never handles the value.
+
+#### Using your own Postgres
+
+Any provider or self-hosted Postgres works if it meets these requirements:
+
+- PostgreSQL 15 or later (CI tests against 18).
+- The Keyra user owns its database or schema: Flyway creates and alters tables at startup.
+- TLS is required (enforced by the `jdbc_url` validation).
+- Session-mode connections only. Transaction-mode poolers (PgBouncer in transaction mode, such as Supabase's port 6543) break Flyway's migration lock and prepared statements; use a direct connection or a session-mode pooler.
+- `max_replicas × KEYRA_DB_POOL_SIZE` (default 4 × 10) must fit within the database's `max_connections`; lower `db_pool_size` for small plans.
+- Backups, high availability and upgrades are your responsibility.
+
 ### Configuration
 
 Environment variables, populated by Terraform in deployed instances:
@@ -293,3 +354,7 @@ Environment variables, populated by Terraform in deployed instances:
 | `KEYRA_ISSUER_URL` | `iss` claim / public URL |
 | `KEYRA_BOOTSTRAP_ADMIN_EMAIL`, `KEYRA_BOOTSTRAP_ADMIN_PASSWORD` | First admin, created at startup |
 | `KEYRA_KEY_ROTATION_GRACE_HOURS` | Old-secret grace period after rotation (default 24) |
+| `KEYRA_DB_POOL_SIZE` | Database connections per instance (default 10) |
+| `PORT` | HTTP port (default 8080; set by Cloud Run) |
+
+`GET /actuator/health` (with `/liveness` and `/readiness` probes) is public; every other actuator endpoint is denied.

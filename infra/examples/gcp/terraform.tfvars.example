@@ -1,0 +1,28 @@
+# Copy to terraform.tfvars (gitignored). Pass the admin password via the environment, never this file:
+#   export TF_VAR_bootstrap_admin_password='...'
+
+project_id            = "my-project"
+region                = "europe-west1"
+image                 = "europe-west1-docker.pkg.dev/my-project/keyra/keyra:0.0.1"
+bootstrap_admin_email = "admin@example.com"
+
+# --- Database: pick one -------------------------------------------------------
+# 1. Cloud SQL (default): leave external_database unset.
+#
+# 2. Your own Postgres, reachable over the internet. Create the password secret first:
+#      printf '%s' "$DB_PASSWORD" | gcloud secrets create keyra-db-password --data-file=-
+# external_database = {
+#   jdbc_url           = "jdbc:postgresql://db.example.com:5432/keyra?sslmode=verify-full"
+#   username           = "keyra"
+#   password_secret_id = "keyra-db-password"
+# }
+#
+# 3. Same, but the database only accepts allowlisted IPs: add the static egress IP
+#    (allowlist the egress_ip output).
+# egress = { static_ip = true }
+#
+# 4. Same, but the database is on a private network you control (VPC, peering, VPN):
+# egress = {
+#   network    = "projects/my-project/global/networks/my-vpc"
+#   subnetwork = "projects/my-project/regions/europe-west1/subnetworks/keyra-run"
+# }

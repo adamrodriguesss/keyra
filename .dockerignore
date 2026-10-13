@@ -1,0 +1,7 @@
+# Allowlist: only what the build needs. Keeps config/, compose.yaml, secrets and .git out of the image.
+*
+!mvnw
+!.mvn/wrapper/maven-wrapper.properties
+!.mvn/jvm.config
+!pom.xml
+!src/main/

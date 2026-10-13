@@ -57,9 +57,19 @@ config/application.properties
 *.tfstate
 *.tfstate.*
 *.tfvars
+*.tfvars.json
 !*.tfvars.example
+# Local-backend state lock, and CLI config files that can hold registry tokens.
+.terraform.tfstate.lock.info
+.terraformrc
+terraform.rc
+# Saved plans can contain sensitive values.
+tfplan
+*.tfplan
 crash.log
 crash.*.log
+# Reusable modules don't pin providers; only root modules (infra/examples/*) commit their lock file.
+infra/modules/**/.terraform.lock.hcl
 override.tf
 override.tf.json
 *_override.tf

@@ -73,6 +73,9 @@ public class SecurityConfig {
                 .permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/keys/validate")
                 .permitAll()
+                .requestMatchers(
+                        HttpMethod.GET, "/actuator/health", "/actuator/health/liveness", "/actuator/health/readiness")
+                .permitAll()
                 .requestMatchers("/error")
                 .permitAll()
                 .anyRequest()

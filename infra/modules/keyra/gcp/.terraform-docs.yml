@@ -1,0 +1,23 @@
+# Regenerate README.md's tables after changing variables or outputs:
+#   terraform-docs infra/modules/keyra/gcp
+formatter: markdown table
+
+sections:
+  hide: [modules, data-sources, providers]
+
+sort:
+  enabled: true
+  by: required
+
+output:
+  file: README.md
+  mode: inject
+
+settings:
+  anchor: false
+  default: true
+  escape: true
+  html: false
+  required: true
+  sensitive: true
+  type: true
