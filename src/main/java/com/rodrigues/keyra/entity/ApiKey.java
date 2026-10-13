@@ -1,6 +1,8 @@
 package com.rodrigues.keyra.entity;
 
+import com.rodrigues.keyra.security.TokenHashing;
 import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -11,8 +13,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -57,12 +57,8 @@ public class ApiKey {
     @Column(nullable = false, length = 16)
     private ApiKeyStatus status;
 
-    /** The secret before the last rotation, still accepted until {@code previousValidUntil}. */
-    @Column(name = "previous_key_hash", length = 64)
-    private String previousKeyHash;
-
-    @Column(name = "previous_valid_until")
-    private Instant previousValidUntil;
+    @Embedded
+    private PreviousSecret previousSecret;
 
     @Column(name = "revoked_at")
     private Instant revokedAt;
@@ -102,46 +98,38 @@ public class ApiKey {
     }
 
     /**
-     * Whether this key may authenticate for {@code productSlug}: the hash matches, it is not revoked or expired,
-     * and its product is active.
+     * Whether {@code candidateHash} is this key's current secret, or its previous one inside the grace window,
+     * and the key's product is active and has slug {@code productSlug}. Says nothing about status or expiry; see
+     * {@link #statusAt}.
      */
-    public boolean accepts(String keyHash, String productSlug, Instant now) {
-        return (matches(this.keyHash, keyHash)
-                        || previousKeyHash != null
-                                && previousValidUntil.isAfter(now)
-                                && matches(previousKeyHash, keyHash))
-                && status == ApiKeyStatus.ACTIVE
-                && (expiresAt == null || expiresAt.isAfter(now))
+    public boolean matches(String candidateHash, String productSlug, Instant now) {
+        return (TokenHashing.hashEquals(keyHash, candidateHash)
+                        || previousSecret != null && previousSecret.acceptsAt(candidateHash, now))
                 && product.isActive()
                 && product.getSlug().equals(productSlug);
     }
 
-    /** Active but past its expiry. Revoked keys never count as expired. */
-    public boolean isExpired(Instant now) {
-        return status == ApiKeyStatus.ACTIVE && expiresAt != null && !expiresAt.isAfter(now);
+    /** The effective status: EXPIRED once an active key passes its expiry. Revoked keys never count as expired. */
+    public ApiKeyStatus statusAt(Instant now) {
+        return status == ApiKeyStatus.ACTIVE && expiresAt != null && !expiresAt.isAfter(now)
+                ? ApiKeyStatus.EXPIRED
+                : status;
     }
 
     public boolean isExpiryAudited() {
         return expiryAudited;
     }
 
-    private static boolean matches(String stored, String candidate) {
-        return MessageDigest.isEqual(
-                stored.getBytes(StandardCharsets.UTF_8), candidate.getBytes(StandardCharsets.UTF_8));
-    }
-
     /** Swaps in a new secret; the current one keeps working until {@code graceUntil}, replacing any older one. */
     public void rotate(String newHash, Instant graceUntil) {
-        previousKeyHash = keyHash;
-        previousValidUntil = graceUntil;
+        previousSecret = new PreviousSecret(keyHash, graceUntil);
         keyHash = newHash;
     }
 
     public void revoke(Instant now) {
         status = ApiKeyStatus.REVOKED;
         revokedAt = now;
-        previousKeyHash = null;
-        previousValidUntil = null;
+        previousSecret = null;
     }
 
     public UUID getId() {

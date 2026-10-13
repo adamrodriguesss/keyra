@@ -16,8 +16,6 @@ import java.util.UUID;
 @Table(name = "audit_events")
 public class AuditEvent {
 
-    public static final String API_KEY = "API_KEY";
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
@@ -33,8 +31,9 @@ public class AuditEvent {
     @Column(nullable = false, length = 16)
     private AuditAction action;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "target_type", nullable = false, length = 16)
-    private String targetType;
+    private AuditTargetType targetType;
 
     @Column(name = "target_id", nullable = false)
     private UUID targetId;
@@ -44,11 +43,11 @@ public class AuditEvent {
 
     protected AuditEvent() {}
 
-    public AuditEvent(
+    private AuditEvent(
             UUID actorId,
             AuditActorType actorType,
             AuditAction action,
-            String targetType,
+            AuditTargetType targetType,
             UUID targetId,
             Instant createdAt) {
         this.actorId = actorId;
@@ -57,6 +56,22 @@ public class AuditEvent {
         this.targetType = targetType;
         this.targetId = targetId;
         this.createdAt = createdAt;
+    }
+
+    public static AuditEvent byManager(
+            UUID managerId, AuditAction action, AuditTargetType targetType, UUID targetId, Instant at) {
+        return new AuditEvent(managerId, AuditActorType.MANAGER, action, targetType, targetId, at);
+    }
+
+    /** Dated at the key's expiry itself, not at when it was noticed. */
+    public static AuditEvent keyExpired(ApiKey key) {
+        return new AuditEvent(
+                null,
+                AuditActorType.SYSTEM,
+                AuditAction.EXPIRE,
+                AuditTargetType.API_KEY,
+                key.getId(),
+                key.getExpiresAt());
     }
 
     public AuditAction getAction() {

@@ -119,11 +119,12 @@ final class AuthApi {
         return idOf(post("/api/manager/products", productBody(uniqueSlug()), adminToken()));
     }
 
-    /** Creates a key with default settings as the given manager and returns the full key. */
-    String createKey(String productId, String accessToken) {
+    /** Creates a key with default settings as the given manager. */
+    CreatedKey createKey(String productId, String accessToken) {
         MvcTestResult created = post("/api/manager/products/" + productId + "/keys", """
                 {"name": "ci", "scopes": ["orders:read"]}""", accessToken);
-        return JsonPath.read(body(created), "$.key");
+        String body = body(created);
+        return new CreatedKey(JsonPath.read(body, "$.apiKey.id"), JsonPath.read(body, "$.key"));
     }
 
     /** Validates a key and returns the raw JSON response body. */
@@ -154,6 +155,8 @@ final class AuthApi {
         return """
                 {"refreshToken": "%s"}""".formatted(refreshToken);
     }
+
+    record CreatedKey(String id, String key) {}
 
     record ManagerAccount(String id, String email, Tokens tokens) {}
 

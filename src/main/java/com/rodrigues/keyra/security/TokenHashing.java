@@ -30,4 +30,9 @@ public final class TokenHashing {
             throw new IllegalStateException("SHA-256 is not available", e);
         }
     }
+
+    /** Constant-time comparison of two stored hashes, so timing can't reveal how much of a hash matched. */
+    public static boolean hashEquals(String a, String b) {
+        return MessageDigest.isEqual(a.getBytes(StandardCharsets.UTF_8), b.getBytes(StandardCharsets.UTF_8));
+    }
 }

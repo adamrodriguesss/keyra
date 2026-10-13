@@ -43,6 +43,14 @@
     {
       "key": "keyId",
       "value": ""
+    },
+    {
+      "key": "productSlug",
+      "value": ""
+    },
+    {
+      "key": "previousApiKey",
+      "value": ""
     }
   ],
   "item": [
@@ -674,7 +682,9 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.collectionVariables.set('productId', pm.response.json().id);"
+                  "const j = pm.response.json();",
+                  "pm.collectionVariables.set('productId', j.id);",
+                  "pm.collectionVariables.set('productSlug', j.slug);"
                 ]
               }
             }
@@ -918,7 +928,8 @@
                   "type": "string"
                 }
               ]
-            }
+            },
+            "description": "Returns the full key once, in `key`. `neverExpires: true` (instead of `expiresInDays`) is admin-only."
           },
           "event": [
             {
@@ -960,7 +971,8 @@
                   "type": "string"
                 }
               ]
-            }
+            },
+            "description": "`status` is `ACTIVE`, `REVOKED` or `EXPIRED`. `EXPIRED` is derived from `expiresAt`, not stored; the first request that sees a key expired records a one-time `EXPIRE` audit event."
           }
         },
         {
@@ -992,7 +1004,8 @@
                   "type": "string"
                 }
               ]
-            }
+            },
+            "description": "Issues a new secret under the same key id and prefix, returned once in `key`. The old secret keeps validating for `KEYRA_KEY_ROTATION_GRACE_HOURS` (default 24); only one old secret is kept, so rotating again ends the older one. 409 if the key is revoked or expired."
           },
           "event": [
             {
@@ -1000,6 +1013,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
+                  "pm.collectionVariables.set('previousApiKey', pm.collectionVariables.get('apiKey'));",
                   "pm.collectionVariables.set('apiKey', pm.response.json().key);"
                 ]
               }
@@ -1035,7 +1049,8 @@
                   "type": "string"
                 }
               ]
-            }
+            },
+            "description": "Immediate and irreversible: both the current and any old secret stop validating, and a second revoke or a rotate returns 409. Run the validate requests first if you want to see the grace period."
           }
         },
         {
@@ -1062,7 +1077,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"product\": \"my-product\",\n  \"key\": \"{{apiKey}}\"\n}",
+              "raw": "{\n  \"product\": \"{{productSlug}}\",\n  \"key\": \"{{apiKey}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1071,7 +1086,45 @@
             },
             "auth": {
               "type": "noauth"
-            }
+            },
+            "description": "Public. Any failure (unknown, expired, revoked, deactivated product, wrong product) returns only `{\"valid\": false}`."
+          }
+        },
+        {
+          "name": "Validate previous key (grace period)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/keys/validate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "keys",
+                "validate"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product\": \"{{productSlug}}\",\n  \"key\": \"{{previousApiKey}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Validates the secret from before the last rotation: `valid: true` during the grace period, `{\"valid\": false}` after it ends, after another rotation, or after a revoke."
           }
         }
       ]
