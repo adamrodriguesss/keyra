@@ -1,156 +1,199 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Keyra GCP Configurator</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: two panes, choices on the left, what they produce (topology, resources, tfvars, commands) on the right; one column on phones. */
+/* Layout: title + live status, then the request path drawn as one transit line, then choices (left) beside what they produce (right). One column on phones, where the line turns vertical. */
 :root {
-  --bg: #f2f5f4;
+  --paper: #edf0f5;
   --surface: #ffffff;
-  --sunken: #e8eeec;
-  --fg: #142220;
-  --muted: #566a67;
-  --line: #d2dcda;
-  --accent: #17666e;
-  --accent-soft: #d9ecec;
-  --yours: #9a560f;
-  --yours-soft: #f6e8d6;
+  --sunken: #e3e8f0;
+  --ink: #1b2340;
+  --muted: #5a6378;
+  --rule: #cdd3df;
+  --made: #3a4cc0;
+  --made-soft: #e2e6fa;
+  --yours: #9c7419;
+  --yours-soft: #f5ecd6;
   --error: #b42318;
   --error-soft: #fde7e4;
-  --code-bg: #10201e;
-  --code-fg: #d7ebe7;
-  --code-key: #8fd3cf;
-  --code-str: #f0c98a;
-  --code-dim: #7d9894;
-  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
-  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
-  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
-  --radius: 10px;
+  --code-bg: #1b2340;
+  --code-fg: #dfe4f5;
+  --code-key: #a9b4ff;
+  --code-str: #e8c77c;
+  --code-dim: #8089a6;
+  --sans: "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0d1413; --surface: #15201e; --sunken: #1b2826; --fg: #e2ece9; --muted: #93a8a4; --line: #2a3a37;
-    --accent: #5fc3c9; --accent-soft: #173a3b; --yours: #e4a75c; --yours-soft: #3a2a17;
-    --error: #f88a7e; --error-soft: #3d1a17; --code-bg: #0a1110; --code-fg: #d7ebe7; --code-key: #8fd3cf; --code-str: #f0c98a; --code-dim: #6f8a86;
+    --paper: #121727; --surface: #1a2034; --sunken: #222a42; --ink: #e4e8f3; --muted: #9aa3ba; --rule: #2f3854;
+    --made: #95a2ff; --made-soft: #262f5c; --yours: #e0b456; --yours-soft: #3a2f17;
+    --error: #f88a7e; --error-soft: #3d1a17; --code-bg: #0e1220; --code-fg: #dfe4f5; --code-key: #a9b4ff; --code-str: #e8c77c; --code-dim: #6f7896;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #0d1413; --surface: #15201e; --sunken: #1b2826; --fg: #e2ece9; --muted: #93a8a4; --line: #2a3a37;
-  --accent: #5fc3c9; --accent-soft: #173a3b; --yours: #e4a75c; --yours-soft: #3a2a17;
-  --error: #f88a7e; --error-soft: #3d1a17; --code-bg: #0a1110; --code-fg: #d7ebe7; --code-key: #8fd3cf; --code-str: #f0c98a; --code-dim: #6f8a86;
+  --paper: #121727; --surface: #1a2034; --sunken: #222a42; --ink: #e4e8f3; --muted: #9aa3ba; --rule: #2f3854;
+  --made: #95a2ff; --made-soft: #262f5c; --yours: #e0b456; --yours-soft: #3a2f17;
+  --error: #f88a7e; --error-soft: #3d1a17; --code-bg: #0e1220; --code-fg: #dfe4f5; --code-key: #a9b4ff; --code-str: #e8c77c; --code-dim: #6f7896;
   color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
-body { background: var(--bg); color: var(--fg); font: 15px/1.5 var(--body); }
-.wrap { max-width: 1240px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 64px; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 400 15px/1.55 var(--sans); }
+code { font: 0.92em var(--mono); }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 32px 16px 72px; }
+@media (min-width: 700px) { .wrap { padding-inline: 28px; } }
 
-header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px 24px; margin-bottom: 24px; }
-h1 { font: 700 clamp(26px, 4vw, 36px)/1.1 var(--display); letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
-h1 span { color: var(--accent); }
-.lede { margin: 6px 0 0; color: var(--muted); max-width: 62ch; }
-.example-tag { font: 500 12px var(--mono); color: var(--yours); background: var(--yours-soft); padding: 4px 10px; border-radius: 999px; }
+/* Title row */
+header.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 32px; }
+h1 { margin: 0; font: 800 clamp(30px, 5vw, 46px)/1.02 var(--sans); letter-spacing: -0.025em; }
+.lede { margin: 10px 0 0; color: var(--muted); max-width: 64ch; font-size: 16px; }
+.example { margin: 6px 0 0; font-size: 13.5px; color: var(--yours); }
+.status { display: flex; align-items: center; gap: 10px; font: 600 14px var(--sans); padding: 9px 14px 9px 12px; border-radius: 999px; border: 1.5px solid currentColor; }
+.status.ok { color: var(--made); background: var(--made-soft); }
+.status.bad { color: var(--error); background: var(--error-soft); }
+.status .dot { width: 9px; height: 9px; border-radius: 50%; background: currentColor; flex: none; }
+.status span:last-child { color: var(--ink); font-weight: 500; }
 
-.grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 24px; align-items: start; }
-@media (max-width: 900px) { .grid { grid-template-columns: minmax(0, 1fr); } }
-
-form { display: grid; gap: 16px; }
-fieldset { border: 1px solid var(--line); background: var(--surface); border-radius: var(--radius); margin: 0; padding: 16px; display: grid; gap: 14px; min-width: 0; }
-legend { font: 600 12px var(--body); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); padding: 0 6px; }
-.row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
-.field { display: grid; gap: 4px; min-width: 0; }
-label, .label { font-weight: 500; font-size: 14px; }
-.hint { font-size: 12.5px; color: var(--muted); }
-input[type="text"], input[type="email"], input[type="number"], select {
-  width: 100%; font: 14px var(--mono); color: var(--fg); background: var(--bg);
-  border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px;
+/* The request path: one transit line, stations for each hop. */
+.route { margin: 28px 0 32px; padding: 24px 24px 18px; background: var(--surface); border-radius: 16px; border: 1px solid var(--rule); }
+.route h2 { margin: 0 0 18px; font: 700 17px var(--sans); }
+.route h2 span { font-weight: 400; color: var(--muted); }
+.line { --dot: 20px; list-style: none; margin: 0; padding: 0; display: flex; position: relative; }
+.line::before { content: ""; position: absolute; left: calc(var(--dot) / 2); right: calc(var(--dot) / 2); top: calc(var(--dot) / 2 - 2px); height: 4px; border-radius: 2px; background: var(--made); transform-origin: left; animation: draw .7s cubic-bezier(.3,.7,.3,1) both; }
+@keyframes draw { from { transform: scaleX(0); } }
+.stop { flex: 1 1 0; min-width: 0; position: relative; display: grid; gap: 2px; align-content: start; padding-right: 12px; }
+.stop::before { content: ""; width: var(--dot); height: var(--dot); border-radius: 50%; background: var(--made); box-shadow: 0 0 0 4px var(--surface); position: relative; margin-bottom: 12px; }
+.stop:last-child::after { content: ""; position: absolute; left: var(--dot); right: -1px; top: calc(var(--dot) / 2 - 3px); height: 6px; background: var(--surface); }
+.stop.yours::before { background: var(--surface); border: 3px dashed var(--yours); }
+.stop.ext::before { background: var(--surface); border: 3px solid var(--muted); }
+.stop b { font: 650 15px/1.25 var(--sans); }
+.stop small { font: 12.5px/1.4 var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+.stop .apps { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+/* A hop is zero-width at the boundary between two stops; its label sits mid-way along the track segment before it. */
+.line { container-type: inline-size; }
+.hop { flex: 0 0 0; width: 0; position: relative; font: 600 12px/1 var(--sans); color: var(--made); }
+.hop span { position: absolute; top: calc(var(--dot) / 2 - 9px); left: calc(-100cqi / var(--n, 4) / 2); transform: translateX(-50%); white-space: nowrap; background: var(--surface); padding: 3px 8px; border-radius: 999px; border: 1.5px solid var(--made); }
+.route .key { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--rule); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px 24px; font-size: 13.5px; color: var(--muted); }
+.route .secrets { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.legend { display: flex; flex-wrap: wrap; gap: 16px; }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.legend i { width: 12px; height: 12px; border-radius: 50%; }
+.legend .l-made { background: var(--made); }
+.legend .l-yours { border: 2px dashed var(--yours); }
+.chip { font: 12px var(--mono); border-radius: 6px; padding: 2px 7px; background: var(--made-soft); color: var(--ink); }
+.chip.yours { background: var(--yours-soft); }
+@media (max-width: 760px) {
+  .line { flex-direction: column; }
+  .line::before { left: calc(var(--dot) / 2 - 2px); right: auto; top: calc(var(--dot) / 2); bottom: calc(var(--dot) / 2); width: 4px; height: auto; transform-origin: top; animation-name: drawv; }
+  @keyframes drawv { from { transform: scaleY(0); } }
+  .stop { grid-template-columns: var(--dot) minmax(0, 1fr); column-gap: 14px; padding: 0; }
+  .stop::before { grid-row: span 3; margin: 0; }
+  .stop:last-child::after { display: none; }
+  .stop > * { grid-column: 2; }
+  .hop { width: auto; margin: 8px 0 12px calc(var(--dot) + 14px); }
+  .hop span { position: static; transform: none; display: inline-block; }
 }
-input:focus-visible, select:focus-visible, button:focus-visible, .choice input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Choices and outputs */
+.grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 28px; align-items: start; }
+@media (max-width: 960px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+
+form { background: var(--surface); border: 1px solid var(--rule); border-radius: 16px; padding: 4px 22px 22px; }
+fieldset { border: 0; margin: 0; padding: 20px 0 0; display: grid; gap: 14px; min-width: 0; }
+fieldset + fieldset { margin-top: 22px; border-top: 1px solid var(--rule); }
+legend { float: left; width: 100%; padding: 0; margin-bottom: 2px; font: 700 18px/1.2 var(--sans); letter-spacing: -0.01em; }
+legend + * { clear: both; }
+.row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
+.field { display: grid; gap: 5px; min-width: 0; align-content: start; }
+label, .label { font: 600 14px var(--sans); }
+.hint { font-size: 13px; color: var(--muted); line-height: 1.45; }
+input[type="text"], input[type="email"], input[type="number"], select {
+  width: 100%; font: 14px var(--mono); color: var(--ink); background: var(--paper);
+  border: 1.5px solid transparent; border-radius: 8px; padding: 9px 11px;
+}
+input:hover, select:hover { border-color: var(--rule); }
+input:focus-visible, select:focus-visible, button:focus-visible, .choice input:focus-visible + span, .check input:focus-visible { outline: 2.5px solid var(--made); outline-offset: 2px; }
 .field.invalid input, .field.invalid select { border-color: var(--error); background: var(--error-soft); }
-.err { color: var(--error); font-size: 12.5px; }
+.err { color: var(--error); font-size: 13px; font-weight: 500; }
 .err:empty { display: none; }
 
 .choices { display: grid; gap: 8px; }
 .choice { position: relative; display: block; cursor: pointer; }
 .choice input { position: absolute; opacity: 0; pointer-events: none; }
-.choice span { display: grid; gap: 2px; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--bg); transition: border-color .15s, background .15s; }
-.choice span b { font-weight: 600; font-size: 14px; }
-.choice span i { font-style: normal; font-size: 12.5px; color: var(--muted); }
-.choice input:checked + span { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
-.check { display: flex; gap: 10px; align-items: start; }
-.check input { margin-top: 3px; accent-color: var(--accent); }
+.choice span { display: grid; grid-template-columns: 18px minmax(0, 1fr); column-gap: 12px; row-gap: 1px; border-radius: 10px; padding: 11px 13px; background: var(--paper); border: 1.5px solid transparent; transition: border-color .15s, background-color .15s; }
+.choice span::before { content: ""; grid-row: span 2; width: 18px; height: 18px; margin-top: 1px; border-radius: 50%; border: 2px solid var(--muted); background: var(--surface); }
+.choice b { font: 600 14.5px var(--sans); }
+.choice i { font-style: normal; font-size: 13px; color: var(--muted); }
+.choice:hover span { border-color: var(--rule); }
+.choice input:checked + span { border-color: var(--made); background: var(--made-soft); }
+.choice input:checked + span::before { border-color: var(--made); background: radial-gradient(circle, var(--made) 0 4px, var(--surface) 5px); }
+.check { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 12px; align-items: start; cursor: pointer; }
+.check input { margin: 2px 0 0; width: 18px; height: 18px; accent-color: var(--made); }
 
-.out { display: grid; gap: 20px; min-width: 0; }
-section.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; min-width: 0; }
-.panel h2 { font: 600 19px/1.2 var(--display); margin: 0 0 4px; }
-.panel .sub { color: var(--muted); font-size: 13.5px; margin: 0 0 14px; }
+.out { display: grid; gap: 22px; min-width: 0; }
+section.panel { min-width: 0; }
+.panel h2 { font: 700 20px/1.2 var(--sans); letter-spacing: -0.01em; margin: 0 0 4px; }
+.panel .sub { color: var(--muted); font-size: 14px; margin: 0 0 12px; max-width: 70ch; }
 
-.status { display: flex; gap: 10px; align-items: center; border-radius: 8px; padding: 10px 12px; font-size: 14px; }
-.status.ok { background: var(--accent-soft); color: var(--fg); }
-.status.bad { background: var(--error-soft); color: var(--fg); }
-.status .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
-.status.ok .dot { background: var(--accent); }
-.status.bad .dot { background: var(--error); }
+.res { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 0 24px; margin: 0; padding: 0; list-style: none; }
+.res li { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; border-bottom: 1px solid var(--rule); padding: 7px 0; }
+.res li span:last-child { font: 600 14px var(--sans); font-variant-numeric: tabular-nums; }
+.total { margin-top: 10px; font-size: 14px; color: var(--muted); }
+.math { margin-top: 14px; font-size: 14px; padding: 12px 14px; border-radius: 10px; background: var(--sunken); }
+.math.warn { background: var(--error-soft); }
 
-/* Topology: request path from the internet to the database, left to right; wraps to a column on phones. */
-.topo { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0; }
-.node { flex: 1 1 120px; min-width: 0; border: 1.5px solid var(--accent); background: var(--accent-soft); border-radius: 8px; padding: 10px; display: grid; gap: 2px; align-content: start; }
-.node.yours { border-style: dashed; border-color: var(--yours); background: var(--yours-soft); }
-.node.ext { border-color: var(--line); background: var(--sunken); }
-.node b { font: 600 13.5px var(--body); }
-.node small { font: 12px var(--mono); color: var(--muted); overflow-wrap: anywhere; }
-.edge { flex: 0 0 64px; display: grid; place-items: center; text-align: center; font: 11px/1.25 var(--mono); color: var(--muted); padding: 0 4px; position: relative; }
-.edge::before { content: ""; position: absolute; left: 6px; right: 6px; top: 50%; border-top: 1.5px solid var(--muted); }
-.edge::after { content: ""; position: absolute; right: 4px; top: calc(50% - 4px); border: 4px solid transparent; border-left: 6px solid var(--muted); }
-.edge span { background: var(--surface); position: relative; padding: 2px; }
-@media (max-width: 620px) {
-  .topo { flex-direction: column; }
-  .node { flex: none; }
-  .edge { flex: none; height: 40px; }
-  .edge::before { left: 50%; right: auto; top: 6px; bottom: 6px; border-top: 0; border-left: 1.5px solid var(--muted); }
-  .edge::after { right: auto; left: calc(50% - 4px); top: auto; bottom: 2px; border: 4px solid transparent; border-top: 6px solid var(--muted); }
-}
-.side { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); }
-.chip { font: 12px var(--mono); border: 1px solid var(--line); border-radius: 999px; padding: 3px 9px; background: var(--bg); color: var(--fg); }
-.chip.yours { border-style: dashed; border-color: var(--yours); }
-.legend { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 14px; font-size: 12.5px; color: var(--muted); }
-.legend i { display: inline-block; width: 14px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
-
-.res { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 6px 18px; margin: 0; padding: 0; list-style: none; }
-.res li { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; border-bottom: 1px dotted var(--line); padding: 4px 0; }
-.res li span:last-child { font: 500 13px var(--mono); font-variant-numeric: tabular-nums; color: var(--muted); }
-.total { margin-top: 10px; font-size: 13px; color: var(--muted); }
-.math { margin-top: 12px; font-size: 13.5px; padding: 10px 12px; border-radius: 8px; background: var(--sunken); }
-.math code { font-family: var(--mono); }
-
-.codehead { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; flex-wrap: wrap; }
-.codehead .file { font: 500 13px var(--mono); color: var(--muted); }
-button.copy { font: 500 13px var(--body); color: var(--accent); background: transparent; border: 1px solid var(--accent); border-radius: 7px; padding: 5px 12px; cursor: pointer; }
-button.copy:hover { background: var(--accent-soft); }
-pre { margin: 0; background: var(--code-bg); color: var(--code-fg); font: 13px/1.6 var(--mono); padding: 14px 16px; border-radius: 8px; overflow-x: auto; white-space: pre; }
+.codehead { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+button.copy { font: 600 13px var(--sans); color: var(--made); background: var(--surface); border: 1.5px solid var(--made); border-radius: 8px; padding: 5px 13px; cursor: pointer; transition: background-color .15s; }
+button.copy:hover { background: var(--made-soft); }
+button.copy.done { color: var(--surface); background: var(--made); }
+pre { margin: 0; background: var(--code-bg); color: var(--code-fg); font: 13px/1.65 var(--mono); padding: 16px 18px; border-radius: 12px; overflow-x: auto; white-space: pre; }
 pre .k { color: var(--code-key); }
 pre .s { color: var(--code-str); }
 pre .c { color: var(--code-dim); }
+.tfvars pre { padding: 20px 22px; font-size: 13.5px; }
 
-ol.steps { margin: 0; padding: 0; list-style: none; display: grid; gap: 16px; counter-reset: step; }
-ol.steps > li { counter-increment: step; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 4px 10px; }
-ol.steps > li::before { content: counter(step); grid-row: span 2; font: 600 13px var(--mono); width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; background: var(--accent-soft); color: var(--accent); }
-ol.steps h3 { margin: 2px 0 0; font: 600 14.5px var(--body); }
-ol.steps .note { font-size: 13px; color: var(--muted); margin: 0 0 6px; }
+ol.steps { margin: 0; padding: 0; list-style: none; display: grid; gap: 22px; counter-reset: step; }
+ol.steps > li { counter-increment: step; display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 2px 12px; }
+ol.steps > li::before { content: counter(step); grid-row: span 2; font: 700 14px/30px var(--sans); width: 30px; height: 30px; text-align: center; border-radius: 50%; border: 2px solid var(--made); color: var(--made); }
+ol.steps h3 { margin: 4px 0 0; font: 650 15.5px var(--sans); }
+ol.steps .note { font-size: 13.5px; color: var(--muted); margin: 0 0 8px; }
+ol.steps .codehead { margin-bottom: 6px; justify-content: flex-end; }
 
-footer { margin-top: 28px; font-size: 13px; color: var(--muted); max-width: 75ch; }
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75ch; }
+@media (prefers-reduced-motion: reduce) { *, *::before { transition: none !important; animation: none !important; } }
 </style>
 
 <div class="wrap">
   <header class="top">
     <div>
-      <h1>Keyra <span>GCP</span> configurator</h1>
-      <p class="lede">Choose how your Keyra instance should run. The page shows what Terraform will create, writes your <code>terraform.tfvars</code>, and lists the commands to deploy it. Nothing leaves your browser, and it never asks for a password.</p>
+      <h1>Keyra on Google Cloud</h1>
+      <p class="lede">Pick how your instance should run. You get the <code>terraform.tfvars</code> and the commands to deploy it. Nothing leaves your browser, and the page never asks for a password.</p>
+      <p class="example" id="exampleTag">These are example values. Replace them with yours.</p>
     </div>
-    <span class="example-tag" id="exampleTag">Example values — replace with yours</span>
+    <div id="status" class="status ok" role="status"><span class="dot"></span><span id="statusText"></span></div>
   </header>
+
+  <section class="route" aria-labelledby="routeTitle">
+    <h2 id="routeTitle">How a request reaches your data <span>— and what Terraform builds along the way</span></h2>
+    <ol class="line" id="topo"></ol>
+    <div class="key">
+      <div class="secrets" id="secrets"></div>
+      <div class="legend">
+        <span><i class="l-made"></i>Terraform creates it</span>
+        <span><i class="l-yours"></i>You already have it</span>
+      </div>
+    </div>
+  </section>
 
   <div class="grid">
     <form id="cfg" autocomplete="off" novalidate>
@@ -178,7 +221,7 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); max-width: 75ch
           <div class="field" data-for="name">
             <label for="name">Instance name</label>
             <input type="text" id="name" value="keyra">
-            <span class="hint">Prefixes every resource. 3–22 lowercase letters, digits, hyphens.</span>
+            <span class="hint">Starts every resource name. 3–22 lowercase letters, digits and hyphens.</span>
             <div class="err"></div>
           </div>
           <div class="field" data-for="version">
@@ -189,9 +232,9 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); max-width: 75ch
           </div>
         </div>
         <div class="field" data-for="admin_email">
-          <label for="admin_email">Bootstrap admin email</label>
+          <label for="admin_email">First admin's email</label>
           <input type="email" id="admin_email" value="admin@acme.example">
-          <span class="hint">The first admin, created at first startup. Its password is set in the shell, not here.</span>
+          <span class="hint">Created when Keyra first starts. You set its password in the shell, not here.</span>
           <div class="err"></div>
         </div>
       </fieldset>
@@ -199,29 +242,37 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); max-width: 75ch
       <fieldset>
         <legend>Database</legend>
         <div class="choices" role="radiogroup" aria-label="Database">
-          <label class="choice"><input type="radio" name="db" id="db_cloudsql" value="cloudsql" checked><span><b>Cloud SQL</b><i>The module creates a private Postgres with TLS, backups and point-in-time recovery.</i></span></label>
-          <label class="choice"><input type="radio" name="db" id="db_external" value="external"><span><b>My own Postgres</b><i>Any provider or self-hosted. You keep backups and upgrades.</i></span></label>
+          <label class="choice"><input type="radio" name="db" id="db_cloudsql" value="cloudsql" checked><span><b>Cloud SQL</b><i>Terraform creates a private Postgres with TLS, backups and point-in-time recovery.</i></span></label>
+          <label class="choice"><input type="radio" name="db" id="db_external" value="external"><span><b>My own Postgres</b><i>Any provider or self-hosted. Backups and upgrades stay with you.</i></span></label>
         </div>
 
-        <div id="cloudsqlFields" class="row">
-          <div class="field" data-for="db_tier">
-            <label for="db_tier">Machine tier</label>
-            <select id="db_tier">
-              <option value="db-f1-micro">db-f1-micro · shared, dev only</option>
-              <option value="db-g1-small">db-g1-small · shared, dev only</option>
-              <option value="db-custom-1-3840" selected>db-custom-1-3840 · 1 vCPU, 3.75 GB</option>
-              <option value="db-custom-2-7680">db-custom-2-7680 · 2 vCPU, 7.5 GB</option>
-              <option value="db-custom-4-15360">db-custom-4-15360 · 4 vCPU, 15 GB</option>
-            </select>
+        <div id="cloudsqlFields" class="field">
+          <div class="row">
+            <div class="field" data-for="db_tier">
+              <label for="db_tier">Machine size</label>
+              <select id="db_tier">
+                <option value="db-f1-micro">db-f1-micro (shared, testing only)</option>
+                <option value="db-g1-small">db-g1-small (shared, testing only)</option>
+                <option value="db-custom-1-3840" selected>db-custom-1-3840 (1 vCPU, 3.75 GB)</option>
+                <option value="db-custom-2-7680">db-custom-2-7680 (2 vCPU, 7.5 GB)</option>
+                <option value="db-custom-4-15360">db-custom-4-15360 (4 vCPU, 15 GB)</option>
+              </select>
+            </div>
+            <div class="field" data-for="cloud_sql_version">
+              <label for="cloud_sql_version">Postgres version</label>
+              <select id="cloud_sql_version">
+                <option value="POSTGRES_18" selected>18</option>
+                <option value="POSTGRES_17">17</option>
+                <option value="POSTGRES_16">16</option>
+                <option value="POSTGRES_15">15</option>
+              </select>
+            </div>
           </div>
-          <div class="field" data-for="cloud_sql_version">
-            <label for="cloud_sql_version">Postgres version</label>
-            <select id="cloud_sql_version">
-              <option value="POSTGRES_18" selected>18</option>
-              <option value="POSTGRES_17">17</option>
-              <option value="POSTGRES_16">16</option>
-              <option value="POSTGRES_15">15</option>
-            </select>
+          <div class="field" data-for="app_dbs">
+            <label for="app_dbs">Databases for your own apps</label>
+            <input type="text" id="app_dbs" value="" placeholder="orders, billing">
+            <span class="hint">Optional. Each name gets its own database, user and password secret on the same instance, separate from Keyra's. You can add more later.</span>
+            <div class="err"></div>
           </div>
         </div>
 
@@ -229,7 +280,7 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); max-width: 75ch
           <div class="field" data-for="jdbc_url">
             <label for="jdbc_url">JDBC URL</label>
             <input type="text" id="jdbc_url" value="jdbc:postgresql://db.acme.example:5432/keyra?sslmode=verify-full">
-            <span class="hint">Must include <code>sslmode=require</code>, <code>verify-ca</code> or <code>verify-full</code>. Use a direct or session-mode connection, not a transaction-mode pooler.</span>
+            <span class="hint">Needs <code>sslmode=require</code>, <code>verify-ca</code> or <code>verify-full</code>. Connect directly or through a session-mode pooler, not a transaction-mode one.</span>
             <div class="err"></div>
           </div>
           <div class="row">
@@ -252,8 +303,8 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); max-width: 75ch
         <legend>How Keyra reaches your database</legend>
         <div class="choices" role="radiogroup" aria-label="Network">
           <label class="choice"><input type="radio" name="net" id="net_public" value="public" checked><span><b>Over the internet</b><i>Your database accepts TLS connections from anywhere.</i></span></label>
-          <label class="choice"><input type="radio" name="net" id="net_static" value="static"><span><b>From a fixed IP</b><i>Your database only accepts allowlisted IPs. Adds Cloud NAT with a reserved address.</i></span></label>
-          <label class="choice"><input type="radio" name="net" id="net_private" value="private"><span><b>Through my private network</b><i>Your database is in a VPC, behind peering or a VPN.</i></span></label>
+          <label class="choice"><input type="radio" name="net" id="net_static" value="static"><span><b>From a fixed IP</b><i>Your database only accepts listed IPs. Adds Cloud NAT with a reserved address.</i></span></label>
+          <label class="choice"><input type="radio" name="net" id="net_private" value="private"><span><b>Through my private network</b><i>Your database sits in a VPC, behind peering or a VPN.</i></span></label>
         </div>
         <div id="privateFields" class="row" hidden>
           <div class="field" data-for="network">
@@ -273,12 +324,12 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); max-width: 75ch
         <legend>Capacity</legend>
         <div class="row">
           <div class="field" data-for="replicas">
-            <label for="replicas">Min instances</label>
+            <label for="replicas">Fewest instances</label>
             <input type="number" id="replicas" min="1" value="2">
             <div class="err"></div>
           </div>
           <div class="field" data-for="max_replicas">
-            <label for="max_replicas">Max instances</label>
+            <label for="max_replicas">Most instances</label>
             <input type="number" id="max_replicas" min="1" value="4">
             <div class="err"></div>
           </div>
@@ -288,51 +339,38 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); max-width: 75ch
             <div class="err"></div>
           </div>
         </div>
-        <label class="check" for="deletion_protection"><input type="checkbox" id="deletion_protection" checked><span><span class="label">Deletion protection</span><br><span class="hint">Stops <code>terraform destroy</code> from deleting the database and service. Turn off only for throwaway instances.</span></span></label>
+        <label class="check" for="deletion_protection"><input type="checkbox" id="deletion_protection" checked><span><span class="label">Protect from deletion</span><br><span class="hint">Stops <code>terraform destroy</code> from deleting the database and service. Turn it off only for throwaway instances.</span></span></label>
       </fieldset>
     </form>
 
     <div class="out" aria-live="polite">
-      <div id="status" class="status ok"><span class="dot"></span><span id="statusText"></span></div>
-
-      <section class="panel">
-        <h2>What you get</h2>
-        <p class="sub">The path a request takes, and what Terraform creates on the way.</p>
-        <div class="topo" id="topo"></div>
-        <div class="side" id="secrets"></div>
-        <div class="legend">
-          <span><i style="background:var(--accent-soft);border:1.5px solid var(--accent)"></i>Created by Terraform</span>
-          <span><i style="background:var(--yours-soft);border:1.5px dashed var(--yours)"></i>Yours, already exists</span>
+      <section class="panel tfvars">
+        <div class="codehead">
+          <h2>Your terraform.tfvars</h2>
+          <button type="button" class="copy" data-copy="tfvars">Copy</button>
         </div>
+        <p class="sub">Save it as <code>infra/examples/gcp/terraform.tfvars</code>. Values that match the defaults are left out.</p>
+        <pre id="tfvars"></pre>
       </section>
 
       <section class="panel">
-        <h2>Resources</h2>
-        <p class="sub">What <code>terraform plan</code> should show for these choices.</p>
+        <h2>What Terraform creates</h2>
+        <p class="sub">Compare this with <code>terraform plan</code> before you apply.</p>
         <ul class="res" id="resources"></ul>
         <div class="total" id="resTotal"></div>
         <div class="math" id="math"></div>
       </section>
 
       <section class="panel">
-        <div class="codehead">
-          <h2>terraform.tfvars</h2>
-          <button type="button" class="copy" data-copy="tfvars">Copy</button>
-        </div>
-        <p class="sub">Save as <code>infra/examples/gcp/terraform.tfvars</code>. Defaults are left out.</p>
-        <pre id="tfvars"></pre>
-      </section>
-
-      <section class="panel">
-        <h2>Deploy</h2>
-        <p class="sub">Run from the repository root, with <code>gcloud</code> logged in and Terraform 1.11 or later.</p>
+        <h2>Deploy it</h2>
+        <p class="sub">Run these from the repository root, logged in to <code>gcloud</code>, with Terraform 1.11 or later.</p>
         <ol class="steps" id="steps"></ol>
       </section>
     </div>
   </div>
 
   <footer>
-    This page mirrors the checks in <code>infra/modules/keyra/gcp/variables.tf</code>. Terraform makes the final call, so always review <code>terraform plan</code> before you apply. Secrets never appear here: the JWT key and the Cloud SQL password are generated during the apply, and passwords you supply go through the shell or Secret Manager.
+    The checks on this page copy the ones in <code>infra/modules/keyra/gcp/variables.tf</code>, but Terraform has the final say, so read <code>terraform plan</code> before you apply. Secrets never appear here: Terraform generates the JWT key and Cloud SQL passwords during the apply, and passwords you supply go through the shell or Secret Manager.
   </footer>
 </div>
 
@@ -340,7 +378,7 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); max-width: 75ch
 (() => {
   const $ = (id) => document.getElementById(id);
   const DEFAULTS = { replicas: 2, max_replicas: 4, db_pool_size: 10, db_tier: "db-custom-1-3840", cloud_sql_version: "POSTGRES_18", deletion_protection: true };
-  const TEXT_IDS = ["project_id", "region", "name", "version", "admin_email", "jdbc_url", "db_username", "secret_id", "network", "subnetwork", "replicas", "max_replicas", "db_pool_size", "db_tier", "cloud_sql_version"];
+  const TEXT_IDS = ["project_id", "region", "name", "version", "admin_email", "jdbc_url", "db_username", "secret_id", "network", "subnetwork", "replicas", "max_replicas", "db_pool_size", "db_tier", "cloud_sql_version", "app_dbs"];
   const STORE_KEY = "keyra-gcp-configurator";
   const EXAMPLE = {};
   TEXT_IDS.forEach((id) => (EXAMPLE[id] = $(id).value));
@@ -363,30 +401,39 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); max-width: 75ch
     v.net = document.querySelector('input[name="net"]:checked').value;
     v.deletion_protection = $("deletion_protection").checked;
     ["replicas", "max_replicas", "db_pool_size"].forEach((k) => (v[k] = v[k] === "" ? NaN : Number(v[k])));
+    v.apps = v.db === "cloudsql" ? v.app_dbs.split(/[\s,]+/).filter(Boolean) : [];
     return v;
   }
 
   // Same rules as variables.tf, so mistakes show up here instead of at plan time.
   function validate(v) {
     const e = {};
-    if (!/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/.test(v.project_id)) e.project_id = "6–30 lowercase letters, digits or hyphens, starting with a letter.";
+    if (!/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/.test(v.project_id)) e.project_id = "Use 6–30 lowercase letters, digits or hyphens, starting with a letter.";
     if (!/^[a-z]+-[a-z]+[0-9]+$/.test(v.region)) e.region = "Use a region ID such as europe-west1.";
-    if (!/^[a-z][a-z0-9-]{1,20}[a-z0-9]$/.test(v.name)) e.name = "3–22 lowercase letters, digits and hyphens, starting with a letter.";
-    if (!/^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/.test(v.version)) e.version = "A Docker tag: letters, digits, '.', '_' or '-'.";
+    if (!/^[a-z][a-z0-9-]{1,20}[a-z0-9]$/.test(v.name)) e.name = "Use 3–22 lowercase letters, digits and hyphens, starting with a letter.";
+    if (!/^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/.test(v.version)) e.version = "Use a Docker tag: letters, digits, '.', '_' or '-'.";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.admin_email)) e.admin_email = "Enter the admin's email address.";
-    if (!Number.isInteger(v.replicas) || v.replicas < 1) e.replicas = "At least 1.";
-    if (!Number.isInteger(v.max_replicas) || v.max_replicas < 1) e.max_replicas = "At least 1.";
-    else if (Number.isInteger(v.replicas) && v.max_replicas < v.replicas) e.max_replicas = "Must be at least the minimum.";
-    if (!Number.isInteger(v.db_pool_size) || v.db_pool_size < 1) e.db_pool_size = "At least 1.";
+    if (!Number.isInteger(v.replicas) || v.replicas < 1) e.replicas = "Use at least 1.";
+    if (!Number.isInteger(v.max_replicas) || v.max_replicas < 1) e.max_replicas = "Use at least 1.";
+    else if (Number.isInteger(v.replicas) && v.max_replicas < v.replicas) e.max_replicas = "Can't be lower than the fewest instances.";
+    if (!Number.isInteger(v.db_pool_size) || v.db_pool_size < 1) e.db_pool_size = "Use at least 1.";
+    if (v.db === "cloudsql") {
+      const bad = v.apps.find((n) => !/^[a-z][a-z0-9_]{0,62}$/.test(n));
+      const reserved = v.apps.find((n) => n === "keyra" || n === "postgres" || n.startsWith("cloudsql"));
+      const dup = v.apps.find((n, i) => v.apps.indexOf(n) !== i);
+      if (bad) e.app_dbs = `"${bad}" isn't valid. Use lowercase letters, digits and underscores, starting with a letter.`;
+      else if (reserved) e.app_dbs = `"${reserved}" is reserved. Pick another name.`;
+      else if (dup) e.app_dbs = `"${dup}" is listed twice.`;
+    }
     if (v.db === "external") {
-      if (!v.jdbc_url.startsWith("jdbc:postgresql://")) e.jdbc_url = "Must start with jdbc:postgresql://";
+      if (!v.jdbc_url.startsWith("jdbc:postgresql://")) e.jdbc_url = "Start it with jdbc:postgresql://";
       else if (!/[?&]sslmode=(require|verify-ca|verify-full)(&|$)/.test(v.jdbc_url)) e.jdbc_url = "Add sslmode=require, verify-ca or verify-full. Keyra only connects over TLS.";
       else if (/:6543(\/|$)/.test(v.jdbc_url.slice(18))) e.jdbc_url = "Port 6543 is usually a transaction-mode pooler, which breaks migrations. Use the direct or session-mode port.";
       if (!v.db_username) e.db_username = "Enter the database user.";
-      if (!/^(projects\/[^/]+\/secrets\/)?[A-Za-z0-9_-]{1,255}$/.test(v.secret_id)) e.secret_id = "A secret name, or projects/<project>/secrets/<name>.";
+      if (!/^(projects\/[^/]+\/secrets\/)?[A-Za-z0-9_-]{1,255}$/.test(v.secret_id)) e.secret_id = "Use a secret name, or projects/<project>/secrets/<name>.";
       if (v.net === "private") {
-        if (!/^projects\/[^/]+\/global\/networks\/[^/]+$/.test(v.network)) e.network = "Full path: projects/<project>/global/networks/<name>.";
-        if (!/^projects\/[^/]+\/regions\/[^/]+\/subnetworks\/[^/]+$/.test(v.subnetwork)) e.subnetwork = "Full path: projects/<project>/regions/<region>/subnetworks/<name>.";
+        if (!/^projects\/[^/]+\/global\/networks\/[^/]+$/.test(v.network)) e.network = "Use the full path: projects/<project>/global/networks/<name>.";
+        if (!/^projects\/[^/]+\/regions\/[^/]+\/subnetworks\/[^/]+$/.test(v.subnetwork)) e.subnetwork = "Use the full path: projects/<project>/regions/<region>/subnetworks/<name>.";
         else if (v.subnetwork.split("/")[3] !== v.region) e.subnetwork = "The subnetwork must be in " + v.region + ".";
       }
     }
@@ -394,7 +441,7 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); max-width: 75ch
   }
 
   const hclStr = (s) => '"' + String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\$\{/g, "$${").replace(/%\{/g, "%%{") + '"';
-  const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
   function image(v) { return `${v.region}-docker.pkg.dev/${v.project_id}/keyra/keyra:${v.version}`; }
 
@@ -417,6 +464,7 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); max-width: 75ch
     if (!v.deletion_protection) extra.push(["deletion_protection", "false"]);
     let out = "# The admin password is not in this file: export TF_VAR_bootstrap_admin_password first.\n" + attrs(top, "");
     if (extra.length) out += "\n\n" + attrs(extra, "");
+    if (v.apps.length) out += "\n\napp_databases = {\n" + attrs(v.apps.map((n) => [n, "{}"]), "  ") + "\n}";
     if (v.db === "external") {
       out += "\n\nexternal_database = {\n" + attrs([["jdbc_url", hclStr(v.jdbc_url)], ["username", hclStr(v.db_username)], ["password_secret_id", hclStr(v.secret_id)]], "  ") + "\n}";
       if (v.net === "static") out += "\n\negress = {\n  static_ip = true\n}";
@@ -428,7 +476,7 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); max-width: 75ch
   function highlightHcl(src) {
     return src.split("\n").map((line) => {
       if (line.startsWith("#")) return `<span class="c">${esc(line)}</span>`;
-      const m = line.match(/^(\s*)([a-z_]+)(\s*=\s*)(.*)$/);
+      const m = line.match(/^(\s*)([a-z_0-9]+)(\s*=\s*)(.*)$/);
       if (!m) return esc(line);
       const val = m[4].startsWith('"') ? `<span class="s">${esc(m[4])}</span>` : esc(m[4]);
       return `${m[1]}<span class="k">${m[2]}</span>${esc(m[3])}${val}`;
@@ -444,28 +492,32 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); max-width: 75ch
     return m ? m[1] : "your database";
   }
 
-  function node(title, detail, kind) {
-    return `<div class="node ${kind || ""}"><b>${esc(title)}</b>${detail ? `<small>${esc(detail)}</small>` : ""}</div>`;
+  function stop(title, detail, kind, extra) {
+    return `<li class="stop ${kind || ""}"><b>${esc(title)}</b>${detail ? `<small>${esc(detail)}</small>` : ""}${extra || ""}</li>`;
   }
-  function edge(label) { return `<div class="edge" aria-hidden="true"><span>${esc(label)}</span></div>`; }
+  function hop(label) { return `<li class="hop"><span>${esc(label)}</span></li>`; }
 
   function topology(v) {
-    const run = node("Cloud Run · " + v.name, `${v.replicas}–${v.max_replicas} instances, HTTPS`);
-    let html = node("Users and products", "public internet", "ext") + edge("HTTPS") + run;
+    let html = stop("Users and products", "public internet", "ext") + hop("HTTPS")
+      + stop("Cloud Run", `${v.name} · ${v.replicas}–${v.max_replicas} instances`);
     if (v.db === "cloudsql") {
-      html += edge("private VPC") + node("VPC · " + v.name, "Direct VPC egress") + edge("private IP, TLS")
-        + node("Cloud SQL", `${v.cloud_sql_version.replace("POSTGRES_", "Postgres ")} · ${v.db_tier}`);
+      const apps = v.apps.length
+        ? `<div class="apps">${["keyra"].concat(v.apps).map((n) => `<span class="chip">${esc(n)}</span>`).join("")}</div>`
+        : "";
+      html += hop("private VPC") + stop("VPC", `${v.name} · Direct VPC egress`) + hop("private IP, TLS")
+        + stop("Cloud SQL", `${v.cloud_sql_version.replace("POSTGRES_", "Postgres ")} · ${v.db_tier}`, "", apps);
     } else if (v.net === "public") {
-      html += edge("internet, TLS") + node("Your Postgres", dbHost(v.jdbc_url), "yours");
+      html += hop("internet, TLS") + stop("Your Postgres", dbHost(v.jdbc_url), "yours");
     } else if (v.net === "static") {
-      html += edge("all traffic") + node("Cloud NAT", "reserved static IP") + edge("internet, TLS")
-        + node("Your Postgres", dbHost(v.jdbc_url) + " · allowlist the IP", "yours");
+      html += hop("all traffic") + stop("Cloud NAT", "reserved static IP") + hop("internet, TLS")
+        + stop("Your Postgres", dbHost(v.jdbc_url) + " · allowlist the IP", "yours");
     } else {
       const net = (v.network.split("/").pop()) || "your VPC";
-      html += edge("private ranges") + node("Your network · " + net, "peering, VPN or Interconnect", "yours") + edge("TLS")
-        + node("Your Postgres", dbHost(v.jdbc_url), "yours");
+      html += hop("private ranges") + stop("Your network", `${net} · peering, VPN or Interconnect`, "yours") + hop("TLS")
+        + stop("Your Postgres", dbHost(v.jdbc_url), "yours");
     }
     $("topo").innerHTML = html;
+    $("topo").style.setProperty("--n", $("topo").querySelectorAll(".stop").length);
     const dbSecret = v.db === "cloudsql" ? `<span class="chip">${esc(v.name)}-db-password</span>` : `<span class="chip yours">${esc(v.secret_id.split("/").pop())}</span>`;
     $("secrets").innerHTML = `Cloud Run reads from Secret Manager:
       <span class="chip">${esc(v.name)}-jwt-private-key</span>
@@ -477,35 +529,39 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); max-width: 75ch
     const cloudsql = v.db === "cloudsql";
     const staticIp = v.db === "external" && v.net === "static";
     const ownVpc = cloudsql || staticIp;
+    const apps = v.apps.length;
+    const secrets = (cloudsql ? 3 : 2) + apps;
     const rows = [
       ["Project APIs enabled", 2 + (ownVpc ? 1 : 0) + (cloudsql ? 2 : 0)],
       ["Service account", 1],
       ["Cloud Run service", 1],
-      ["Secrets (+ one version each)", cloudsql ? 3 : 2],
-      ["Secret read grants", 3],
+      ["Secrets and their versions", secrets * 2],
+      ["Secret read grants for Keyra", 3],
       ["JWT key ID", 1],
     ];
-    if (ownVpc) rows.push(["VPC network + subnet", 2]);
+    if (ownVpc) rows.push(["VPC network and subnet", 2]);
     if (cloudsql) rows.push(["Private service connection", 2], ["Cloud SQL instance, database, user", 3]);
+    if (apps) rows.push([`App databases and users (${apps} ${apps === 1 ? "app" : "apps"})`, apps * 2]);
     if (staticIp) rows.push(["Static IP, router, NAT", 3]);
-    const secretVersions = cloudsql ? 3 : 2;
-    const total = rows.reduce((n, [, c]) => n + c, 0) + secretVersions;
+    const total = rows.reduce((n, [, c]) => n + c, 0);
     $("resources").innerHTML = rows.map(([k, c]) => `<li><span>${esc(k)}</span><span>${c}</span></li>`).join("");
     $("resTotal").textContent = `About ${total} resources in total.`;
 
     const peak = v.max_replicas * v.db_pool_size;
-    let tail;
+    let tail, warn = false;
     if (cloudsql) {
       const small = { "db-f1-micro": 25, "db-g1-small": 50 }[v.db_tier];
-      tail = small && peak > small
-        ? ` That is more than the ${small} connections ${v.db_tier} allows. Lower the connections each, or pick a bigger tier.`
-        : " Check that the tier's max_connections covers it.";
+      warn = !!(small && peak > small);
+      tail = warn
+        ? ` That's more than the ${small} connections ${v.db_tier} allows. Lower the connections each, or pick a bigger machine.`
+        : ` Check that the machine's max_connections covers it${apps ? ", plus what your apps open" : ""}.`;
     } else {
-      tail = " Your database's max_connections must cover it, minus what other apps use.";
+      tail = " Your database's max_connections must cover it, plus what other apps use.";
     }
+    $("math").className = "math" + (warn ? " warn" : "");
     $("math").innerHTML = Number.isFinite(peak)
       ? `At full scale Keyra opens up to <code>${v.max_replicas} × ${v.db_pool_size} = ${peak}</code> database connections.${esc(tail)}`
-      : "Fill in the capacity fields to see the connection count.";
+      : "Fill in the capacity fields to see how many connections Keyra opens.";
   }
 
   function steps(v) {
@@ -519,20 +575,26 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); max-width: 75ch
       list.push(["Store the database password", "Only Secret Manager sees it. Terraform and this page never do.",
         `read -rs DB_PASSWORD\nprintf '%s' "$DB_PASSWORD" | gcloud secrets create ${sn} \\\n  --data-file=- --project=${sp}\nunset DB_PASSWORD`]);
     }
-    list.push(["Create the state bucket", "Holds Terraform state. Versioning keeps earlier states recoverable.",
+    list.push(["Create the state bucket", "Holds Terraform state. Versioning lets you recover earlier states.",
       `gcloud storage buckets create gs://${p}-tfstate --location=${r} \\\n  --uniform-bucket-level-access --project=${p}\ngcloud storage buckets update gs://${p}-tfstate --versioning`]);
-    list.push(["Initialize", "Paste the tfvars above into infra/examples/gcp/terraform.tfvars first.",
+    list.push(["Initialize", "Save the tfvars above into infra/examples/gcp/terraform.tfvars first.",
       `cd infra/examples/gcp\nterraform init -backend-config="bucket=${p}-tfstate"\nread -rs TF_VAR_bootstrap_admin_password && export TF_VAR_bootstrap_admin_password   # 12–128 characters`]);
     if (v.db === "external" && v.net === "static") {
       list.push(["Reserve the IP and allowlist it", "Keyra can only start once your database accepts this address.",
         `terraform apply -target=module.keyra.google_compute_address.egress\nterraform output egress_ip   # add this IP to your database's allowlist`]);
     }
-    list.push(["Review, then apply", "Read the plan before applying. It should match the resource list above.",
+    list.push(["Review, then apply", "Read the plan before you apply. It should match the resource list above.",
       `terraform plan -out=tfplan\nterraform apply tfplan`]);
-    list.push(["Check it is up", "Uses the url output.",
+    list.push(["Check that it's up", "Uses the url output.",
       `URL=$(terraform output -raw url)\ncurl -s "$URL/actuator/health"        # {"status":"UP"}\ncurl -s "$URL/.well-known/jwks.json"`]);
+    if (v.apps.length) {
+      const grants = v.apps.map((n) => `gcloud secrets add-iam-policy-binding ${v.name}-${n}-db-password --project=${p} \\\n  --member=serviceAccount:YOUR_APP_SA --role=roles/secretmanager.secretAccessor`).join("\n");
+      const own = v.apps.map((n) => `#   alter database ${n} owner to ${n}; revoke all on database ${n} from public;`).join("\n");
+      list.push(["Connect your apps", "Each app gets its JDBC URL from the outputs and reads its password from its own secret. It reaches the database through Direct VPC egress into the vpc_network and vpc_subnetwork outputs.",
+        `terraform output -json app_databases\n${grants}\n# Then, connected as each app's user, keep other users out of its database:\n${own}`]);
+    }
     $("steps").innerHTML = list.map(([h, note, code], i) => `<li><h3>${esc(h)}</h3><div><p class="note">${esc(note)}</p>
-      <div class="codehead"><span class="file">shell</span><button type="button" class="copy" data-copy="step${i}">Copy</button></div>
+      <div class="codehead"><button type="button" class="copy" data-copy="step${i}" aria-label="Copy: ${esc(h)}">Copy</button></div>
       <pre id="step${i}">${highlightSh(code)}</pre></div></li>`).join("");
   }
 
@@ -556,11 +618,10 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); max-width: 75ch
     const n = Object.keys(errors).length;
     $("status").className = "status " + (n ? "bad" : "ok");
     $("statusText").textContent = n
-      ? `${n} ${n === 1 ? "field needs" : "fields need"} fixing. Terraform would reject these values.`
-      : "These choices pass the module's checks.";
+      ? `${n} ${n === 1 ? "field needs" : "fields need"} fixing`
+      : "Ready to deploy";
 
-    const isExample = TEXT_IDS.every((id) => $(id).value === EXAMPLE[id]);
-    $("exampleTag").hidden = !isExample;
+    $("exampleTag").hidden = !TEXT_IDS.every((id) => $(id).value === EXAMPLE[id]);
 
     topology(v);
     resources(v);
@@ -574,10 +635,10 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); max-width: 75ch
     const btn = ev.target.closest("button.copy");
     if (!btn) return;
     const pre = $(btn.dataset.copy);
-    const text = pre.textContent;
     try {
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(pre.textContent);
       btn.textContent = "Copied";
+      btn.classList.add("done");
     } catch (e) {
       const range = document.createRange();
       range.selectNodeContents(pre);
@@ -586,7 +647,7 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); max-width: 75ch
       sel.addRange(range);
       btn.textContent = "Selected, press Ctrl+C";
     }
-    setTimeout(() => (btn.textContent = "Copy"), 1800);
+    setTimeout(() => { btn.textContent = "Copy"; btn.classList.remove("done"); }, 1800);
   });
 
   $("cfg").addEventListener("input", render);
@@ -595,3 +656,4 @@ footer { margin-top: 28px; font-size: 13px; color: var(--muted); max-width: 75ch
   render();
 })();
 </script>
+</html>
