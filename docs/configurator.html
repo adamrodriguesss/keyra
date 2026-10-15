@@ -160,7 +160,7 @@ pre { margin: 0; background: var(--code-bg); color: var(--code-fg); font: 13px/1
 pre .k { color: var(--code-key); }
 pre .s { color: var(--code-str); }
 pre .c { color: var(--code-dim); }
-.tfvars pre { padding: 20px 22px; font-size: 13.5px; }
+.maintf pre { padding: 20px 22px; font-size: 13.5px; }
 
 ol.steps { margin: 0; padding: 0; list-style: none; display: grid; gap: 22px; counter-reset: step; }
 ol.steps > li { counter-increment: step; display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 2px 12px; }
@@ -169,6 +169,8 @@ ol.steps h3 { margin: 4px 0 0; font: 650 15.5px var(--sans); }
 ol.steps .note { font-size: 13.5px; color: var(--muted); margin: 0 0 8px; }
 ol.steps .codehead { margin-bottom: 6px; justify-content: flex-end; }
 
+details { margin-top: 18px; }
+summary { cursor: pointer; font-weight: 600; }
 footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75ch; }
 @media (prefers-reduced-motion: reduce) { *, *::before { transition: none !important; animation: none !important; } }
 </style>
@@ -177,7 +179,7 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
   <header class="top">
     <div>
       <h1>Keyra on Google Cloud</h1>
-      <p class="lede">Pick how your instance should run. You get the <code>terraform.tfvars</code> and the commands to deploy it. Nothing leaves your browser, and the page never asks for a password.</p>
+      <p class="lede">Pick how your instance should run. You get a <code>main.tf</code> and the commands to deploy it. Nothing leaves your browser, and the page never asks for a password.</p>
       <p class="example" id="exampleTag">These are example values. Replace them with yours.</p>
     </div>
     <div id="status" class="status ok" role="status"><span class="dot"></span><span id="statusText"></span></div>
@@ -224,17 +226,11 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
             <span class="hint">Starts every resource name. 3–22 lowercase letters, digits and hyphens.</span>
             <div class="err"></div>
           </div>
-          <div class="field" data-for="version">
-            <label for="version">Image tag</label>
-            <input type="text" id="version" value="0.1.0">
-            <span class="hint">The tag you push to Artifact Registry.</span>
-            <div class="err"></div>
-          </div>
         </div>
         <div class="field" data-for="admin_email">
           <label for="admin_email">First admin's email</label>
           <input type="email" id="admin_email" value="admin@acme.example">
-          <span class="hint">Created when Keyra first starts. You set its password in the shell, not here.</span>
+          <span class="hint">Created when Keyra first starts. Terraform generates its password; the steps below show how to read it.</span>
           <div class="err"></div>
         </div>
       </fieldset>
@@ -341,16 +337,26 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
         </div>
         <label class="check" for="deletion_protection"><input type="checkbox" id="deletion_protection" checked><span><span class="label">Protect from deletion</span><br><span class="hint">Stops <code>terraform destroy</code> from deleting the database and service. Turn it off only for throwaway instances.</span></span></label>
       </fieldset>
+
+      <details>
+        <summary>Advanced: custom image</summary>
+        <div class="field" data-for="image">
+          <label for="image">Image URL</label>
+          <input type="text" id="image" value="" placeholder="europe-west1-docker.pkg.dev/acme/keyra/keyra:1.0.0">
+          <span class="hint">Leave empty to run the published release. Fill it in only for your own build.</span>
+          <div class="err"></div>
+        </div>
+      </details>
     </form>
 
     <div class="out" aria-live="polite">
-      <section class="panel tfvars">
+      <section class="panel maintf">
         <div class="codehead">
-          <h2>Your terraform.tfvars</h2>
-          <button type="button" class="copy" data-copy="tfvars">Copy</button>
+          <h2>Your main.tf</h2>
+          <span><button type="button" class="copy" data-copy="maintf">Copy</button> <button type="button" class="copy" data-copy="maintf" data-download="main.tf">Download</button></span>
         </div>
-        <p class="sub">Save it as <code>infra/examples/gcp/terraform.tfvars</code>. Values that match the defaults are left out.</p>
-        <pre id="tfvars"></pre>
+        <p class="sub">Save it as <code>main.tf</code> in an empty folder. Values that match the defaults are left out.</p>
+        <pre id="maintf"></pre>
       </section>
 
       <section class="panel">
@@ -363,7 +369,7 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
 
       <section class="panel">
         <h2>Deploy it</h2>
-        <p class="sub">Run these from the repository root, logged in to <code>gcloud</code>, with Terraform 1.11 or later.</p>
+        <p class="sub">Run these in the folder with main.tf, logged in to <code>gcloud</code>, with Terraform 1.11 or later.</p>
         <ol class="steps" id="steps"></ol>
       </section>
     </div>
@@ -377,8 +383,9 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
 <script>
 (() => {
   const $ = (id) => document.getElementById(id);
+  const KEYRA_VERSION = "0.1.0"; // bump together with local.keyra_version in the module
   const DEFAULTS = { replicas: 2, max_replicas: 4, db_pool_size: 10, db_tier: "db-custom-1-3840", cloud_sql_version: "POSTGRES_18", deletion_protection: true };
-  const TEXT_IDS = ["project_id", "region", "name", "version", "admin_email", "jdbc_url", "db_username", "secret_id", "network", "subnetwork", "replicas", "max_replicas", "db_pool_size", "db_tier", "cloud_sql_version", "app_dbs"];
+  const TEXT_IDS = ["project_id", "region", "name", "image", "admin_email", "jdbc_url", "db_username", "secret_id", "network", "subnetwork", "replicas", "max_replicas", "db_pool_size", "db_tier", "cloud_sql_version", "app_dbs"];
   const STORE_KEY = "keyra-gcp-configurator";
   const EXAMPLE = {};
   TEXT_IDS.forEach((id) => (EXAMPLE[id] = $(id).value));
@@ -411,7 +418,7 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
     if (!/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/.test(v.project_id)) e.project_id = "Use 6–30 lowercase letters, digits or hyphens, starting with a letter.";
     if (!/^[a-z]+-[a-z]+[0-9]+$/.test(v.region)) e.region = "Use a region ID such as europe-west1.";
     if (!/^[a-z][a-z0-9-]{1,20}[a-z0-9]$/.test(v.name)) e.name = "Use 3–22 lowercase letters, digits and hyphens, starting with a letter.";
-    if (!/^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/.test(v.version)) e.version = "Use a Docker tag: letters, digits, '.', '_' or '-'.";
+    if (v.image && !/^[^\s:]+\/[^\s:]+(\/[^\s:]+)*:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/.test(v.image)) e.image = "Use a full image URL ending in a tag: letters, digits, '.', '_' or '-'.";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.admin_email)) e.admin_email = "Enter the admin's email address.";
     if (!Number.isInteger(v.replicas) || v.replicas < 1) e.replicas = "Use at least 1.";
     if (!Number.isInteger(v.max_replicas) || v.max_replicas < 1) e.max_replicas = "Use at least 1.";
@@ -443,18 +450,17 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
   const hclStr = (s) => '"' + String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\$\{/g, "$${").replace(/%\{/g, "%%{") + '"';
   const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-  function image(v) { return `${v.region}-docker.pkg.dev/${v.project_id}/keyra/keyra:${v.version}`; }
-
   // Aligned like terraform fmt: consecutive one-line attributes share an "=" column.
   function attrs(pairs, indent) {
     const w = Math.max(...pairs.map(([k]) => k.length));
     return pairs.map(([k, val]) => `${indent}${k.padEnd(w)} = ${val}`).join("\n");
   }
 
-  function tfvars(v) {
-    const top = [["project_id", hclStr(v.project_id)], ["region", hclStr(v.region)]];
-    if (v.name !== "keyra") top.push(["name", hclStr(v.name)]);
-    top.push(["image", hclStr(image(v))], ["bootstrap_admin_email", hclStr(v.admin_email)]);
+  function mainTf(v) {
+    // name is always written: the module requires it (only the example root defaulted it).
+    const top = [["project_id", hclStr(v.project_id)], ["region", hclStr(v.region)], ["name", hclStr(v.name)]];
+    top.push(["bootstrap_admin_email", hclStr(v.admin_email)]);
+    if (v.image) top.push(["image", hclStr(v.image)]);
     const extra = [];
     for (const k of ["replicas", "max_replicas", "db_pool_size"]) if (v[k] !== DEFAULTS[k]) extra.push([k, String(v[k])]);
     if (v.db === "cloudsql") {
@@ -462,20 +468,40 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
       if (v.cloud_sql_version !== DEFAULTS.cloud_sql_version) extra.push(["cloud_sql_version", hclStr(v.cloud_sql_version)]);
     }
     if (!v.deletion_protection) extra.push(["deletion_protection", "false"]);
-    let out = "# The admin password is not in this file: export TF_VAR_bootstrap_admin_password first.\n" + attrs(top, "");
-    if (extra.length) out += "\n\n" + attrs(extra, "");
-    if (v.apps.length) out += "\n\napp_databases = {\n" + attrs(v.apps.map((n) => [n, "{}"]), "  ") + "\n}";
+    let mod = attrs([["source", hclStr(`git::https://github.com/adamrodriguesss/keyra.git//infra/modules/keyra/gcp?ref=v${KEYRA_VERSION}`)]], "  ") + "\n\n" + attrs(top, "  ");
+    if (extra.length) mod += "\n\n" + attrs(extra, "  ");
+    if (v.apps.length) mod += "\n\n  app_databases = {\n" + attrs(v.apps.map((n) => [n, "{}"]), "    ") + "\n  }";
     if (v.db === "external") {
-      out += "\n\nexternal_database = {\n" + attrs([["jdbc_url", hclStr(v.jdbc_url)], ["username", hclStr(v.db_username)], ["password_secret_id", hclStr(v.secret_id)]], "  ") + "\n}";
-      if (v.net === "static") out += "\n\negress = {\n  static_ip = true\n}";
-      if (v.net === "private") out += "\n\negress = {\n" + attrs([["network", hclStr(v.network)], ["subnetwork", hclStr(v.subnetwork)]], "  ") + "\n}";
+      mod += "\n\n  external_database = {\n" + attrs([["jdbc_url", hclStr(v.jdbc_url)], ["username", hclStr(v.db_username)], ["password_secret_id", hclStr(v.secret_id)]], "    ") + "\n  }";
+      if (v.net === "static") mod += "\n\n  egress = {\n    static_ip = true\n  }";
+      if (v.net === "private") mod += "\n\n  egress = {\n" + attrs([["network", hclStr(v.network)], ["subnetwork", hclStr(v.subnetwork)]], "    ") + "\n  }";
     }
-    return out + "\n";
+    const outs = [["url"], ["bootstrap_admin_password_secret"]];
+    if (v.db === "external" && v.net === "static") outs.push(["egress_ip"]);
+    if (v.apps.length) outs.push(["app_databases"]);
+    return `terraform {
+  required_version = ">= 1.11"
+
+  backend "gcs" {
+${attrs([["bucket", hclStr(v.project_id + "-tfstate")], ["prefix", hclStr("keyra")]], "    ")}
+  }
+}
+
+provider "google" {
+${attrs([["project", hclStr(v.project_id)], ["region", hclStr(v.region)]], "  ")}
+}
+
+module "keyra" {
+${mod}
+}
+` + outs.map(([o]) => `\noutput "${o}" {\n  value = module.keyra.${o}\n}\n`).join("");
   }
 
   function highlightHcl(src) {
     return src.split("\n").map((line) => {
       if (line.startsWith("#")) return `<span class="c">${esc(line)}</span>`;
+      const blk = line.match(/^([a-z_]+)(\s+"[^"]*")*\s*\{$/);
+      if (blk) return `<span class="k">${blk[1]}</span>` + esc(line.slice(blk[1].length)).replace(/&quot;.*?&quot;/g, (q) => `<span class="s">${q}</span>`);
       const m = line.match(/^(\s*)([a-z_0-9]+)(\s*=\s*)(.*)$/);
       if (!m) return esc(line);
       const val = m[4].startsWith('"') ? `<span class="s">${esc(m[4])}</span>` : esc(m[4]);
@@ -521,7 +547,7 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
     const dbSecret = v.db === "cloudsql" ? `<span class="chip">${esc(v.name)}-db-password</span>` : `<span class="chip yours">${esc(v.secret_id.split("/").pop())}</span>`;
     $("secrets").innerHTML = `Cloud Run reads from Secret Manager:
       <span class="chip">${esc(v.name)}-jwt-private-key</span>
-      <span class="chip">${esc(v.name)}-bootstrap-admin-password</span>${dbSecret}`;
+      <span class="chip">${esc(v.name)}-bootstrap-admin-password</span> (generated)${dbSecret}`;
   }
 
   // Mirrors the count/for_each conditions in the module.
@@ -532,13 +558,14 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
     const apps = v.apps.length;
     const secrets = (cloudsql ? 3 : 2) + apps;
     const rows = [
-      ["Project APIs enabled", 2 + (ownVpc ? 1 : 0) + (cloudsql ? 2 : 0)],
+      ["Project APIs enabled", 2 + (v.image ? 0 : 1) + (ownVpc ? 1 : 0) + (cloudsql ? 2 : 0)],
       ["Service account", 1],
       ["Cloud Run service", 1],
       ["Secrets and their versions", secrets * 2],
       ["Secret read grants for Keyra", 3],
       ["JWT key ID", 1],
     ];
+    if (!v.image) rows.push(["Image proxy repository (GHCR)", 1]);
     if (ownVpc) rows.push(["VPC network and subnet", 2]);
     if (cloudsql) rows.push(["Private service connection", 2], ["Cloud SQL instance, database, user", 3]);
     if (apps) rows.push([`App databases and users (${apps} ${apps === 1 ? "app" : "apps"})`, apps * 2]);
@@ -567,8 +594,6 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
   function steps(v) {
     const p = v.project_id, r = v.region;
     const list = [];
-    list.push(["Push the image", "Creates the Docker repository once, then builds and pushes this version.",
-      `gcloud artifacts repositories create keyra --repository-format=docker \\\n  --location=${r} --project=${p}\ngcloud auth configure-docker ${r}-docker.pkg.dev\ndocker build -t ${image(v)} .\ndocker push ${image(v)}`]);
     if (v.db === "external") {
       const m = v.secret_id.match(/^projects\/([^/]+)\/secrets\/(.+)$/);
       const sp = m ? m[1] : p, sn = m ? m[2] : v.secret_id;
@@ -577,16 +602,14 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
     }
     list.push(["Create the state bucket", "Holds Terraform state. Versioning lets you recover earlier states.",
       `gcloud storage buckets create gs://${p}-tfstate --location=${r} \\\n  --uniform-bucket-level-access --project=${p}\ngcloud storage buckets update gs://${p}-tfstate --versioning`]);
-    list.push(["Initialize", "Save the tfvars above into infra/examples/gcp/terraform.tfvars first.",
-      `cd infra/examples/gcp\nterraform init -backend-config="bucket=${p}-tfstate"\nread -rs TF_VAR_bootstrap_admin_password && export TF_VAR_bootstrap_admin_password   # 12–128 characters`]);
     if (v.db === "external" && v.net === "static") {
-      list.push(["Reserve the IP and allowlist it", "Keyra can only start once your database accepts this address.",
-        `terraform apply -target=module.keyra.google_compute_address.egress\nterraform output egress_ip   # add this IP to your database's allowlist`]);
+      list.push(["Reserve the IP and allowlist it", "Save main.tf in an empty folder first. Keyra can only start once your database accepts this address.",
+        `terraform init\nterraform apply -target=module.keyra.google_compute_address.egress\nterraform output egress_ip   # add this IP to your database's allowlist`]);
     }
-    list.push(["Review, then apply", "Read the plan before you apply. It should match the resource list above.",
-      `terraform plan -out=tfplan\nterraform apply tfplan`]);
-    list.push(["Check that it's up", "Uses the url output.",
-      `URL=$(terraform output -raw url)\ncurl -s "$URL/actuator/health"        # {"status":"UP"}\ncurl -s "$URL/.well-known/jwks.json"`]);
+    list.push(["Deploy", "Save main.tf in an empty folder, then run this there. Terraform shows the plan and asks before it applies.",
+      "terraform init && terraform apply"]);
+    list.push(["Sign in as the admin", `Sign in at the url output as ${v.admin_email}. This prints the generated password.`,
+      `gcloud secrets versions access latest --secret=${v.name}-bootstrap-admin-password --project=${p}`]);
     if (v.apps.length) {
       const grants = v.apps.map((n) => `gcloud secrets add-iam-policy-binding ${v.name}-${n}-db-password --project=${p} \\\n  --member=serviceAccount:YOUR_APP_SA --role=roles/secretmanager.secretAccessor`).join("\n");
       const own = v.apps.map((n) => `#   alter database ${n} owner to ${n}; revoke all on database ${n} from public;`).join("\n");
@@ -625,7 +648,7 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
 
     topology(v);
     resources(v);
-    $("tfvars").innerHTML = highlightHcl(tfvars(v));
+    $("maintf").innerHTML = highlightHcl(mainTf(v));
     steps(v);
 
     try { localStorage.setItem(STORE_KEY, JSON.stringify(Object.assign({}, Object.fromEntries(TEXT_IDS.map((id) => [id, $(id).value])), { db: v.db, net: v.net, deletion_protection: v.deletion_protection }))); } catch (e) { /* ignore */ }
@@ -635,6 +658,14 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
     const btn = ev.target.closest("button.copy");
     if (!btn) return;
     const pre = $(btn.dataset.copy);
+    if (btn.dataset.download) {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([pre.textContent], { type: "text/plain" }));
+      a.download = btn.dataset.download;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      return;
+    }
     try {
       await navigator.clipboard.writeText(pre.textContent);
       btn.textContent = "Copied";
