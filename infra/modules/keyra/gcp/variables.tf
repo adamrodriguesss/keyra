@@ -160,13 +160,14 @@ variable "bootstrap_admin_email" {
 }
 
 variable "bootstrap_admin_password" {
-  description = "First admin's password (12-128 characters). Ephemeral: written to Secret Manager, never to state. Supply via TF_VAR_bootstrap_admin_password."
+  description = "First admin's password (12-128 characters). Ephemeral: written to Secret Manager, never to state. null generates one (read it from the bootstrap_admin_password_secret output)."
   type        = string
+  default     = null
   sensitive   = true
   ephemeral   = true
 
   validation {
-    condition     = length(var.bootstrap_admin_password) >= 12 && length(var.bootstrap_admin_password) <= 128
+    condition     = var.bootstrap_admin_password == null || (length(var.bootstrap_admin_password) >= 12 && length(var.bootstrap_admin_password) <= 128)
     error_message = "bootstrap_admin_password must be 12 to 128 characters."
   }
 }

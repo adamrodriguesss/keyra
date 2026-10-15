@@ -44,3 +44,8 @@ output "app_databases" {
     }
   }
 }
+
+output "bootstrap_admin_password_secret" {
+  description = "Secret Manager secret ID holding the first admin's password."
+  value       = google_secret_manager_secret.bootstrap_admin_password.secret_id
+}

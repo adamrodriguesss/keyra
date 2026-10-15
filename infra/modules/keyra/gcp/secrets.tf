@@ -37,10 +37,16 @@ resource "google_secret_manager_secret" "bootstrap_admin_password" {
   depends_on = [google_project_service.apis]
 }
 
+# Always generated (count can't depend on an ephemeral variable), used only when the password is null. Never stored; written only on the first apply (secret_data_wo_version stays 1).
+ephemeral "random_password" "bootstrap_admin" {
+  length  = 24
+  special = false
+}
+
 # Only read on the first startup, while no managers exist.
 resource "google_secret_manager_secret_version" "bootstrap_admin_password" {
   secret                 = google_secret_manager_secret.bootstrap_admin_password.id
-  secret_data_wo         = var.bootstrap_admin_password
+  secret_data_wo         = var.bootstrap_admin_password != null ? var.bootstrap_admin_password : ephemeral.random_password.bootstrap_admin.result
   secret_data_wo_version = 1
 }
 
