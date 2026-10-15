@@ -15,6 +15,11 @@ locals {
   db_user            = coalesce(try(var.external_database.username, null), one(google_sql_user.keyra[*].name))
   db_password_secret = coalesce(try(var.external_database.password_secret_id, null), one(google_secret_manager_secret.db_password[*].id))
 
+  # One tag pins both this module and the image it runs; the release workflow checks they match.
+  keyra_version = "0.1.0"
+  use_ghcr      = var.image == null
+  image         = coalesce(var.image, "${var.region}-docker.pkg.dev/${var.project_id}/${var.name}-ghcr/adamrodriguesss/keyra:${local.keyra_version}")
+
   # Cloud Run's deterministic URL, known before the service exists, so it can be the token issuer.
   url = "https://${var.name}-${data.google_project.this.number}.${var.region}.run.app"
 }
@@ -28,6 +33,7 @@ resource "google_project_service" "apis" {
     ["run.googleapis.com", "secretmanager.googleapis.com"],
     # Compute hosts the VPC, private range and NAT, so it is only needed when the module creates networking.
     local.use_own_vpc ? ["compute.googleapis.com"] : [],
+    local.use_ghcr ? ["artifactregistry.googleapis.com"] : [],
     local.create_db ? ["sqladmin.googleapis.com", "servicenetworking.googleapis.com"] : [],
   ))
 

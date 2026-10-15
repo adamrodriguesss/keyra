@@ -61,7 +61,7 @@ resource "google_cloud_run_v2_service" "keyra" {
     }
 
     containers {
-      image = var.image
+      image = local.image
 
       ports {
         container_port = 8080
@@ -117,6 +117,7 @@ resource "google_cloud_run_v2_service" "keyra" {
 
   depends_on = [
     google_project_service.apis,
+    google_artifact_registry_repository.ghcr,
     google_secret_manager_secret_iam_member.run,
     google_sql_user.keyra,
     google_sql_database.keyra,

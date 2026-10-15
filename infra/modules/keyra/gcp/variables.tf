@@ -21,8 +21,9 @@ variable "region" {
 }
 
 variable "image" {
-  description = "Keyra container image, e.g. europe-west1-docker.pkg.dev/<project>/keyra/keyra:1.0.0."
+  description = "Custom Keyra container image, e.g. europe-west1-docker.pkg.dev/<project>/keyra/keyra:1.0.0. null runs the published release through a GHCR proxy repository."
   type        = string
+  default     = null
 }
 
 variable "replicas" {
