@@ -4,7 +4,7 @@ Keyra is a self-hosted identity and API key service for companies that run more 
 
 A company deploys its own Keyra instance with Terraform, on AWS or GCP, backed by its own Postgres database. No data is shared between companies.
 
-> **Status:** early development. Milestones 1 (manager and user login), 2 (products and managers), 3 (API keys) and 4 (key lifecycle) are done; 5 (Terraform on GCP) is in progress. This document is the specification the implementation follows.
+> **Status:** early development. Milestones 1 (manager and user login), 2 (products and managers), 3 (API keys) and 4 (key lifecycle) and 5 (Terraform on GCP) are done; 6 (Terraform on AWS) is next. This document is the specification the implementation follows.
 
 ---
 
@@ -332,6 +332,8 @@ terraform output egress_ip   # add to your database's allowlist, then run terraf
 
 `external_database` takes a `jdbc_url` (must set `sslmode=require`, `verify-ca` or `verify-full`), a `username`, and `password_secret_id`: an existing Secret Manager secret holding the password. The module only grants Cloud Run read access to it and never handles the value.
 
+Changing the database mode of an existing instance (for example Cloud SQL to your own Postgres) switches Keyra to a new, empty database, so migrate your data yourself (`pg_dump`/`pg_restore`) before applying. Cloud Run moves first and the old Cloud SQL instance and network are removed afterwards, though the subnet may still need a second `terraform destroy`/apply later because of the documented Cloud Run hold. A change that replaces the module's VPC, subnet or Cloud SQL instance (such as a new `subnet_cidr` or `region`) needs a new instance `name`, because the replacement is created before the old one is removed and the names would clash.
+
 #### Using your own Postgres
 
 Any provider or self-hosted Postgres works if it meets these requirements:
@@ -342,6 +344,16 @@ Any provider or self-hosted Postgres works if it meets these requirements:
 - Session-mode connections only. Transaction-mode poolers (PgBouncer in transaction mode, such as Supabase's port 6543) break Flyway's migration lock and prepared statements; use a direct connection or a session-mode pooler.
 - `max_replicas × KEYRA_DB_POOL_SIZE` (default 4 × 10) must fit within the database's `max_connections`; lower `db_pool_size` for small plans.
 - Backups, high availability and upgrades are your responsibility.
+
+#### Sharing the database server with your own apps
+
+- One server, one database and one user per app. Keyra's database is Keyra's alone: never point another app at it or grant another app's user access, and read Keyra data only through its API.
+- Cloud SQL mode: set `app_databases`. Connect from your app with Direct VPC egress into the `vpc_network` / `vpc_subnetwork` outputs, using the private IP in `jdbc_url` and the password from `password_secret_id` (grant your app's service account `secretAccessor` on it).
+- Your own Postgres: create the extra database and user yourself, and point `jdbc_url` at Keyra's database.
+- Adding later: add a key and `terraform apply` again; only the new database, user and secret are created. Removing a key keeps the data (`ABANDON`). Databases created outside Terraform also work and Terraform leaves them alone; never use Keyra's `keyra` user to create them.
+- Keyra's V7 migration takes ownership of its database and schema and revokes PUBLIC access, so other users on the instance can't connect to, drop or alter it. Do the same for your app's database: `alter database <db> owner to <user>; revoke all on database <db> from public;`.
+- Connection budget: `max_replicas × db_pool_size` plus every other app's pool must fit `max_connections`; resize `db_tier` if needed.
+- Shared fate: a restore or point-in-time recovery of the instance rolls back every database on it.
 
 ### Configuration
 
