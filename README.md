@@ -287,28 +287,38 @@ Keyra ships a reusable Terraform module, `modules/keyra`, with the same input va
 
 Core inputs: instance name, region, container image, replica count, database size, and the bootstrap admin email and password. Applying the module outputs the public URL of the new instance.
 
-Secrets never reach Terraform state: the JWT signing key and database password are generated as ephemeral values and written to the secret manager through write-only attributes, and the bootstrap admin password is an ephemeral input. This needs Terraform 1.11 or later.
+Secrets never reach Terraform state: the JWT signing key and database password are generated as ephemeral values and written to the secret manager through write-only attributes, and the bootstrap admin password is generated the same way (or passed as an ephemeral input). This needs Terraform 1.11 or later.
 
 ### Deploy to GCP
 
-The module (`infra/modules/keyra/gcp`) runs Keyra on Cloud Run with a public `https://<name>-<project-number>.<region>.run.app` URL, which is also the token issuer. `infra/examples/gcp` shows how to use it.
+The module (`infra/modules/keyra/gcp`) runs Keyra on Cloud Run with a public `https://<name>-<project-number>.<region>.run.app` URL, which is also the token issuer. By default it runs the published image from GitHub Container Registry, proxied through an Artifact Registry remote repository. You don't clone this repository or install Docker.
 
-1. Prerequisites: Terraform 1.11+, `gcloud` logged in with rights to create the resources, Docker.
-2. Build and push the image:
+1. Prerequisites: Terraform 1.11+ and `gcloud` logged in with rights to create the resources.
+2. Open `docs/configurator.html` in a browser, fill it in, and save the generated `main.tf` in an empty folder.
+3. In that folder, run the three commands the page shows:
    ```bash
-   gcloud artifacts repositories create keyra --repository-format=docker --location=<region>
-   gcloud auth configure-docker <region>-docker.pkg.dev
-   docker build -t <region>-docker.pkg.dev/<project>/keyra/keyra:<version> .
-   docker push <region>-docker.pkg.dev/<project>/keyra/keyra:<version>
+   gcloud storage buckets create gs://<project>-tfstate --location=<region> --uniform-bucket-level-access --project=<project>   # once per project
+   gcloud storage buckets update gs://<project>-tfstate --versioning
+   terraform init && terraform apply
+   gcloud secrets versions access latest --secret=<name>-bootstrap-admin-password --project=<project>   # the generated admin password
    ```
-3. Create a GCS bucket for Terraform state, copy `terraform.tfvars.example` to `terraform.tfvars` and fill it in, then:
-   ```bash
-   cd infra/examples/gcp
-   export TF_VAR_bootstrap_admin_password='...'   # 12-128 characters; needed on every plan/apply
-   terraform init -backend-config="bucket=<state-bucket>"
-   terraform apply
-   ```
-4. Smoke test against the `url` output: `GET /actuator/health` and `/.well-known/jwks.json` respond, the bootstrap admin can log in, and a key created for a new product validates.
+
+`terraform apply` ends with a health check on `/actuator/health`; a warning there means the instance isn't up yet, so read the Cloud Run logs.
+
+#### Build your own image
+
+Set `image` in the module block (the configurator's "Advanced: custom image") and push it first:
+
+```bash
+gcloud artifacts repositories create keyra --repository-format=docker --location=<region>
+gcloud auth configure-docker <region>-docker.pkg.dev
+docker build -t <region>-docker.pkg.dev/<project>/keyra/keyra:<version> .
+docker push <region>-docker.pkg.dev/<project>/keyra/keyra:<version>
+```
+
+#### Releasing
+
+Bump `local.keyra_version` in `infra/modules/keyra/gcp/main.tf` and `KEYRA_VERSION` in `docs/configurator.html`, then push the tag `v<version>`. The release workflow checks the tag against `keyra_version` and publishes `ghcr.io/adamrodriguesss/keyra:<version>` and `:latest`. After the first release, make the `keyra` GHCR package public so deployments can pull it anonymously.
 
 Cloud SQL and the Cloud Run service have deletion protection on by default (`deletion_protection = false` to tear an instance down). Bump `jwt_key_version` or `db_password_version` to rotate those secrets.
 
