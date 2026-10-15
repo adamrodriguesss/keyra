@@ -1,10 +1,12 @@
-# Copy to terraform.tfvars (gitignored). Pass the admin password via the environment, never this file:
-#   export TF_VAR_bootstrap_admin_password='...'
+# Copy to terraform.tfvars (gitignored). The admin password is generated; read it from the
+# bootstrap_admin_password_secret output.
 
 project_id            = "my-project"
 region                = "europe-west1"
-image                 = "europe-west1-docker.pkg.dev/my-project/keyra/keyra:0.0.1"
 bootstrap_admin_email = "admin@example.com"
+
+# Custom build only; unset runs the published release.
+# image = "europe-west1-docker.pkg.dev/my-project/keyra/keyra:0.0.1"
 
 # --- Database: pick one -------------------------------------------------------
 # 1. Cloud SQL (default): leave external_database unset.

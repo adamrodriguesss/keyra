@@ -47,6 +47,15 @@ mock_provider "google" {
   }
 }
 
+mock_provider "http" {
+  mock_data "http" {
+    defaults = {
+      status_code   = 200
+      response_body = "{\"status\":\"UP\"}"
+    }
+  }
+}
+
 # random and tls run locally for real; mocks do not support ephemeral resources.
 
 variables {
@@ -253,5 +262,48 @@ run "app_database_added_later" {
   assert {
     condition     = length(google_sql_database_instance.db) == 1 && length(google_sql_database.keyra) == 1
     error_message = "The instance and Keyra's database should be untouched."
+  }
+}
+
+run "published_image" {
+  command = apply
+
+  variables {
+    image = null
+  }
+
+  assert {
+    condition     = length(google_artifact_registry_repository.ghcr) == 1
+    error_message = "The GHCR proxy repository should exist when no image is set."
+  }
+  assert {
+    condition     = google_cloud_run_v2_service.keyra.template[0].containers[0].image == "europe-west1-docker.pkg.dev/acme/keyra-ghcr/adamrodriguesss/keyra:0.1.0"
+    error_message = "The service should run the published release through the proxy."
+  }
+  assert {
+    condition     = contains(keys(google_project_service.apis), "artifactregistry.googleapis.com")
+    error_message = "Artifact Registry API should be enabled."
+  }
+}
+
+run "custom_image" {
+  command = apply
+
+  assert {
+    condition     = length(google_artifact_registry_repository.ghcr) == 0 && !contains(keys(google_project_service.apis), "artifactregistry.googleapis.com")
+    error_message = "A custom image needs no proxy repository or Artifact Registry API."
+  }
+}
+
+run "generated_password" {
+  command = apply
+
+  variables {
+    bootstrap_admin_password = null
+  }
+
+  assert {
+    condition     = output.bootstrap_admin_password_secret == "keyra-bootstrap-admin-password"
+    error_message = "The secret ID should be exposed so the generated password can be read."
   }
 }

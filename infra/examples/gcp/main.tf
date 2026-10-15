@@ -54,7 +54,8 @@ variable "region" {
 }
 
 variable "image" {
-  type = string
+  type    = string
+  default = null
 }
 
 # Optional inputs default to null, which means "use the module's default" (see the module README).
@@ -94,6 +95,7 @@ variable "bootstrap_admin_email" {
 
 variable "bootstrap_admin_password" {
   type      = string
+  default   = null
   sensitive = true
   ephemeral = true
 }
@@ -118,6 +120,10 @@ variable "egress" {
 
 output "url" {
   value = module.keyra.url
+}
+
+output "bootstrap_admin_password_secret" {
+  value = module.keyra.bootstrap_admin_password_secret
 }
 
 output "egress_ip" {
