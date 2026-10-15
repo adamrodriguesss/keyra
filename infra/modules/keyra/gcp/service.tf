@@ -123,3 +123,20 @@ resource "google_cloud_run_v2_service" "keyra" {
     google_sql_database.keyra,
   ]
 }
+
+# A warning, not a failure: the instance may still be starting after the retries.
+check "health" {
+  data "http" "health" {
+    url = "${local.url}/actuator/health"
+
+    retry {
+      attempts     = 5
+      min_delay_ms = 2000
+    }
+  }
+
+  assert {
+    condition     = data.http.health.status_code == 200 && jsondecode(data.http.health.response_body).status == "UP"
+    error_message = "Keyra did not report healthy at ${local.url}/actuator/health. Check the Cloud Run logs in Cloud Logging."
+  }
+}
