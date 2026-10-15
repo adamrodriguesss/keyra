@@ -17,3 +17,30 @@ output "cloud_sql_instance" {
   description = "Cloud SQL connection name. null with an external database."
   value       = one(google_sql_database_instance.db[*].connection_name)
 }
+
+output "cloud_sql_private_ip" {
+  description = "Private IP of the Cloud SQL instance. null with an external database."
+  value       = one(google_sql_database_instance.db[*].private_ip_address)
+}
+
+output "vpc_network" {
+  description = "Network Cloud Run egresses into; attach your own apps here to reach the database."
+  value       = local.vpc_network
+}
+
+output "vpc_subnetwork" {
+  description = "Subnetwork Cloud Run egresses into (Direct VPC egress)."
+  value       = local.vpc_subnetwork
+}
+
+output "app_databases" {
+  description = "Per app database: name, user, password secret and JDBC URL. Empty with an external database."
+  value = {
+    for k, _ in google_sql_database.app : k => {
+      database           = k
+      user               = google_sql_user.app[k].name
+      password_secret_id = google_secret_manager_secret.app_db_password[k].id
+      jdbc_url           = "jdbc:postgresql://${google_sql_database_instance.db[0].private_ip_address}:5432/${k}?sslmode=require"
+    }
+  }
+}

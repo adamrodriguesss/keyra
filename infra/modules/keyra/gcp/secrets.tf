@@ -63,6 +63,26 @@ resource "google_secret_manager_secret_version" "db_password" {
   secret_data_wo_version = var.db_password_version
 }
 
+# Your apps' passwords: Keyra never reads these, so they are not in the Cloud Run grants below.
+resource "google_secret_manager_secret" "app_db_password" {
+  for_each = local.create_db ? var.app_databases : {}
+
+  project   = var.project_id
+  secret_id = "${var.name}-${each.key}-db-password"
+  replication {
+    auto {}
+  }
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_secret_manager_secret_version" "app_db_password" {
+  for_each = local.create_db ? var.app_databases : {}
+
+  secret                 = google_secret_manager_secret.app_db_password[each.key].id
+  secret_data_wo         = ephemeral.random_password.app[each.key].result
+  secret_data_wo_version = each.value.password_version
+}
+
 # Read access to exactly these secrets, including an external database's existing one.
 resource "google_secret_manager_secret_iam_member" "run" {
   for_each = {

@@ -37,6 +37,7 @@ module "keyra" {
   bootstrap_admin_password = var.bootstrap_admin_password
   external_database        = var.external_database
   egress                   = var.egress
+  app_databases            = var.app_databases
 }
 
 variable "project_id" {
@@ -121,4 +122,15 @@ output "url" {
 
 output "egress_ip" {
   value = module.keyra.egress_ip
+}
+
+variable "app_databases" {
+  type = map(object({
+    password_version = optional(number, 1)
+  }))
+  default = {}
+}
+
+output "app_databases" {
+  value = module.keyra.app_databases
 }

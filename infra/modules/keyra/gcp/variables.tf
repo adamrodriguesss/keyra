@@ -93,6 +93,28 @@ variable "external_database" {
   }
 }
 
+variable "app_databases" {
+  description = "Extra databases for your own apps on the Cloud SQL instance: one database and one user per key (same name), password in Secret Manager. Bump password_version to rotate. Cloud SQL only."
+  type = map(object({
+    password_version = optional(number, 1)
+  }))
+  default  = {}
+  nullable = false
+
+  validation {
+    condition = alltrue([
+      for k in keys(var.app_databases) :
+      can(regex("^[a-z][a-z0-9_]{0,62}$", k)) && !contains(["keyra", "postgres"], k) && !startswith(k, "cloudsql")
+    ])
+    error_message = "app_databases keys must match ^[a-z][a-z0-9_]{0,62}$ and must not be keyra, postgres or start with cloudsql."
+  }
+
+  validation {
+    condition     = var.external_database == null || length(var.app_databases) == 0
+    error_message = "app_databases is only for Cloud SQL; with external_database, create the databases yourself."
+  }
+}
+
 variable "egress" {
   description = <<-EOT
     How Cloud Run reaches the database. Default: Cloud SQL over the module's VPC, or a public external database

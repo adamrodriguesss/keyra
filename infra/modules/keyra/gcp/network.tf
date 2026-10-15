@@ -7,6 +7,13 @@ resource "google_compute_network" "vpc" {
   auto_create_subnetworks = false
 
   depends_on = [google_project_service.apis]
+
+  # Create-before-destroy on the VPC, subnet and Cloud SQL instance: their dependents (Cloud Run)
+  # must be updated before they are destroyed, otherwise Cloud Run still holds the subnet / database
+  # during a mode switch.
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "google_compute_subnetwork" "run" {
@@ -18,6 +25,10 @@ resource "google_compute_subnetwork" "run" {
   network                  = google_compute_network.vpc[0].id
   ip_cidr_range            = var.subnet_cidr
   private_ip_google_access = true
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "google_compute_address" "egress" {

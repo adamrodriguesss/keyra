@@ -26,3 +26,9 @@ bootstrap_admin_email = "admin@example.com"
 #   network    = "projects/my-project/global/networks/my-vpc"
 #   subnetwork = "projects/my-project/regions/europe-west1/subnetworks/keyra-run"
 # }
+
+# --- Your own apps' databases on the Cloud SQL instance (Cloud SQL only, addable any time) ---
+# app_databases = {
+#   billing = {}
+#   crm     = { password_version = 1 } # bump to rotate the password
+# }

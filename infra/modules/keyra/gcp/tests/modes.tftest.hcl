@@ -30,6 +30,11 @@ mock_provider "google" {
       member = "serviceAccount:keyra-run@acme.iam.gserviceaccount.com"
     }
   }
+  mock_resource "google_sql_database_instance" {
+    defaults = {
+      private_ip_address = "10.20.0.3"
+    }
+  }
   mock_resource "google_secret_manager_secret" {
     defaults = {
       id = "projects/acme/secrets/keyra-secret"
@@ -182,4 +187,71 @@ run "rejects_private_network_with_cloud_sql" {
   }
 
   expect_failures = [var.egress]
+}
+
+run "app_databases_on_cloud_sql" {
+  command = apply
+
+  variables {
+    app_databases = {
+      billing = {}
+      crm     = { password_version = 2 }
+    }
+  }
+
+  assert {
+    condition     = length(google_sql_database.app) == 2 && length(google_sql_user.app) == 2 && length(google_secret_manager_secret.app_db_password) == 2
+    error_message = "Each app should get a database, a user and a password secret."
+  }
+  assert {
+    condition     = length(google_secret_manager_secret_iam_member.run) == 3
+    error_message = "Keyra must not be granted the apps' secrets."
+  }
+  assert {
+    condition     = output.app_databases["crm"].jdbc_url == "jdbc:postgresql://10.20.0.3:5432/crm?sslmode=require"
+    error_message = "The output should carry the private-IP JDBC URL."
+  }
+}
+
+run "app_databases_rejected_with_external_db" {
+  command = plan
+
+  variables {
+    external_database = {
+      jdbc_url           = "jdbc:postgresql://db.example.com:5432/keyra?sslmode=require"
+      username           = "keyra"
+      password_secret_id = "keyra-db-password"
+    }
+    app_databases = { billing = {} }
+  }
+
+  expect_failures = [var.app_databases]
+}
+
+run "app_database_initial" {
+  command = apply
+
+  variables {
+    app_databases = { billing = {} }
+  }
+}
+
+run "app_database_added_later" {
+  command = apply
+
+  variables {
+    app_databases = {
+      billing = {}
+      crm     = {}
+    }
+  }
+
+  assert {
+    condition     = contains(keys(google_sql_database.app), "crm") && contains(keys(google_sql_database.app), "billing")
+    error_message = "The new database should be added next to the existing one."
+  }
+  assert {
+    condition     = length(google_sql_database_instance.db) == 1 && length(google_sql_database.keyra) == 1
+    error_message = "The instance and Keyra's database should be untouched."
+  }
 }
