@@ -186,6 +186,13 @@ variable "db_password_version" {
   nullable    = false
 }
 
+variable "metrics_enabled" {
+  description = "Exports metrics to Google Cloud Managed Service for Prometheus through an OpenTelemetry Collector sidecar. Costs more: CPU becomes always allocated (billed for as long as each instance runs) and the sidecar adds 1 vCPU per instance."
+  type        = bool
+  default     = false
+  nullable    = false
+}
+
 variable "deletion_protection" {
   description = "Protects the Cloud SQL instance and the Cloud Run service from terraform destroy."
   type        = bool

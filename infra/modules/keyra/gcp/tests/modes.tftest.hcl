@@ -82,6 +82,14 @@ run "cloud_sql_by_default" {
     condition     = output.url == "https://keyra-123456789.europe-west1.run.app"
     error_message = "URL should be Cloud Run's deterministic run.app URL."
   }
+  assert {
+    condition     = length(google_cloud_run_v2_service.keyra.template[0].containers) == 1 && length(google_project_iam_member.metric_writer) == 0
+    error_message = "Metrics are opt-in: no collector sidecar or metric writer role by default."
+  }
+  assert {
+    condition     = google_cloud_run_v2_service.keyra.template[0].containers[0].resources[0].cpu_idle
+    error_message = "Without metrics, CPU should only be allocated during requests."
+  }
 }
 
 run "external_database_public" {
@@ -305,5 +313,38 @@ run "generated_password" {
   assert {
     condition     = output.bootstrap_admin_password_secret == "keyra-bootstrap-admin-password"
     error_message = "The secret ID should be exposed so the generated password can be read."
+  }
+}
+
+run "metrics_enabled" {
+  command = apply
+
+  variables {
+    metrics_enabled = true
+  }
+
+  assert {
+    condition     = join(",", [for c in google_cloud_run_v2_service.keyra.template[0].containers : c.name]) == "keyra,otel-collector"
+    error_message = "Metrics should add the collector sidecar."
+  }
+  assert {
+    condition     = google_cloud_run_v2_service.keyra.template[0].containers[0].depends_on == tolist(["otel-collector"])
+    error_message = "Keyra should start after the collector."
+  }
+  assert {
+    condition     = alltrue([for c in google_cloud_run_v2_service.keyra.template[0].containers : !c.resources[0].cpu_idle])
+    error_message = "Pushing metrics needs CPU always allocated."
+  }
+  assert {
+    condition     = local.env.KEYRA_METRICS_ENABLED == "true"
+    error_message = "Keyra should be told to push metrics."
+  }
+  assert {
+    condition     = local.collector_config.extensions.health_check.endpoint == "0.0.0.0:13133"
+    error_message = "Cloud Run's startup probe can't reach a health check bound to localhost."
+  }
+  assert {
+    condition     = length(google_project_iam_member.metric_writer) == 1 && contains(keys(google_project_service.apis), "monitoring.googleapis.com")
+    error_message = "The service account needs the metric writer role and the Monitoring API."
   }
 }

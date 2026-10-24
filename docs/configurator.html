@@ -58,7 +58,10 @@ header.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-cont
 h1 { margin: 0; font: 800 clamp(30px, 5vw, 46px)/1.02 var(--sans); letter-spacing: -0.025em; }
 .lede { margin: 10px 0 0; color: var(--muted); max-width: 64ch; font-size: 16px; }
 .example { margin: 6px 0 0; font-size: 13.5px; color: var(--yours); }
-.status { display: flex; align-items: center; gap: 10px; font: 600 14px var(--sans); padding: 9px 14px 9px 12px; border-radius: 999px; border: 1.5px solid currentColor; }
+.status { display: flex; align-items: center; gap: 10px; font: 600 14px var(--sans); padding: 9px 14px 9px 12px; border-radius: 999px; border: 1.5px solid currentColor; appearance: none; margin: 0; text-align: left; }
+.status.bad { cursor: pointer; }
+.status.ok { cursor: default; }
+button.linkish { display: block; margin: 6px 0 0; padding: 0; border: 0; background: none; font: 13.5px var(--sans); color: var(--made); text-decoration: underline; cursor: pointer; }
 .status.ok { color: var(--made); background: var(--made-soft); }
 .status.bad { color: var(--error); background: var(--error-soft); }
 .status .dot { width: 9px; height: 9px; border-radius: 50%; background: currentColor; flex: none; }
@@ -107,6 +110,7 @@ h1 { margin: 0; font: 800 clamp(30px, 5vw, 46px)/1.02 var(--sans); letter-spacin
 /* Choices and outputs */
 .grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 28px; align-items: start; }
 @media (max-width: 960px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+@media (min-width: 961px) { form { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; overscroll-behavior: contain; } }
 
 form { background: var(--surface); border: 1px solid var(--rule); border-radius: 16px; padding: 4px 22px 22px; }
 fieldset { border: 0; margin: 0; padding: 20px 0 0; display: grid; gap: 14px; min-width: 0; }
@@ -141,14 +145,20 @@ input:focus-visible, select:focus-visible, button:focus-visible, .choice input:f
 .check input { margin: 2px 0 0; width: 18px; height: 18px; accent-color: var(--made); }
 
 .out { display: grid; gap: 22px; min-width: 0; }
-section.panel { min-width: 0; }
-.panel h2 { font: 700 20px/1.2 var(--sans); letter-spacing: -0.01em; margin: 0 0 4px; }
-.panel .sub { color: var(--muted); font-size: 14px; margin: 0 0 12px; max-width: 70ch; }
+.journey { list-style: none; margin: 0; padding: 0; position: relative; display: grid; gap: 36px; }
+.station { position: relative; padding-left: 40px; min-width: 0; }
+.station::before { content: ""; position: absolute; left: 0; top: 2px; z-index: 1; width: 20px; height: 20px; border-radius: 50%; background: var(--made); box-shadow: 0 0 0 4px var(--paper); }
+/* Track to the next dot's centre (36px gap + 10px); the last station has none, so it can't overrun. */
+.station:not(:last-child)::after { content: ""; position: absolute; left: 8px; top: 12px; bottom: -46px; width: 4px; border-radius: 2px; background: var(--made); }
+.station.yours::before { background: var(--paper); border: 3px dashed var(--yours); }
+.station.end::before { background: var(--paper); border: 5px solid var(--made); }
+.station h2 { font: 700 20px/24px var(--sans); letter-spacing: -0.01em; margin: 0 0 4px; }
+.station .sub { color: var(--muted); font-size: 14px; margin: 0 0 12px; max-width: 70ch; }
+.station > .codehead { align-items: flex-start; }
 
 .res { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 0 24px; margin: 0; padding: 0; list-style: none; }
 .res li { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; border-bottom: 1px solid var(--rule); padding: 7px 0; }
 .res li span:last-child { font: 600 14px var(--sans); font-variant-numeric: tabular-nums; }
-.total { margin-top: 10px; font-size: 14px; color: var(--muted); }
 .math { margin-top: 14px; font-size: 14px; padding: 12px 14px; border-radius: 10px; background: var(--sunken); }
 .math.warn { background: var(--error-soft); }
 
@@ -165,6 +175,7 @@ pre .c { color: var(--code-dim); }
 ol.steps { margin: 0; padding: 0; list-style: none; display: grid; gap: 22px; counter-reset: step; }
 ol.steps > li { counter-increment: step; display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 2px 12px; }
 ol.steps > li::before { content: counter(step); grid-row: span 2; font: 700 14px/30px var(--sans); width: 30px; height: 30px; text-align: center; border-radius: 50%; border: 2px solid var(--made); color: var(--made); }
+.station.yours ol.steps > li::before { border-color: var(--yours); color: var(--yours); }
 ol.steps h3 { margin: 4px 0 0; font: 650 15.5px var(--sans); }
 ol.steps .note { font-size: 13.5px; color: var(--muted); margin: 0 0 8px; }
 ol.steps .codehead { margin-bottom: 6px; justify-content: flex-end; }
@@ -179,10 +190,11 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
   <header class="top">
     <div>
       <h1>Keyra on Google Cloud</h1>
-      <p class="lede">Pick how your instance should run. You get a <code>main.tf</code> and the commands to deploy it. Nothing leaves your browser, and the page never asks for a password.</p>
+      <p class="lede">Pick how your instance should run. You get the steps to prepare your database, a <code>main.tf</code>, and the commands to deploy it. Nothing leaves your browser, and the page never asks for a password.</p>
       <p class="example" id="exampleTag">These are example values. Replace them with yours.</p>
+      <button type="button" class="linkish" id="reset" hidden>Start over with the example</button>
     </div>
-    <div id="status" class="status ok" role="status"><span class="dot"></span><span id="statusText"></span></div>
+    <button type="button" id="status" class="status ok"><span class="dot"></span><span id="statusText" aria-live="polite"></span></button>
   </header>
 
   <section class="route" aria-labelledby="routeTitle">
@@ -199,42 +211,6 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
 
   <div class="grid">
     <form id="cfg" autocomplete="off" novalidate>
-      <fieldset>
-        <legend>Project</legend>
-        <div class="row">
-          <div class="field" data-for="project_id">
-            <label for="project_id">GCP project ID</label>
-            <input type="text" id="project_id" value="acme-keyra-prod">
-            <div class="err"></div>
-          </div>
-          <div class="field" data-for="region">
-            <label for="region">Region</label>
-            <input type="text" id="region" list="regions" value="europe-west1">
-            <datalist id="regions">
-              <option value="us-central1"><option value="us-east1"><option value="us-east4"><option value="us-west1">
-              <option value="northamerica-northeast1"><option value="southamerica-east1">
-              <option value="europe-west1"><option value="europe-west2"><option value="europe-west3"><option value="europe-west4">
-              <option value="asia-south1"><option value="asia-southeast1"><option value="asia-northeast1"><option value="australia-southeast1">
-            </datalist>
-            <div class="err"></div>
-          </div>
-        </div>
-        <div class="row">
-          <div class="field" data-for="name">
-            <label for="name">Instance name</label>
-            <input type="text" id="name" value="keyra">
-            <span class="hint">Starts every resource name. 3–22 lowercase letters, digits and hyphens.</span>
-            <div class="err"></div>
-          </div>
-        </div>
-        <div class="field" data-for="admin_email">
-          <label for="admin_email">First admin's email</label>
-          <input type="email" id="admin_email" value="admin@acme.example">
-          <span class="hint">Created when Keyra first starts. Terraform generates its password; the steps below show how to read it.</span>
-          <div class="err"></div>
-        </div>
-      </fieldset>
-
       <fieldset>
         <legend>Database</legend>
         <div class="choices" role="radiogroup" aria-label="Database">
@@ -273,10 +249,15 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
         </div>
 
         <div id="externalFields" class="field" hidden>
+          <div class="choices" role="radiogroup" aria-label="Provider">
+            <label class="choice"><input type="radio" name="provider" id="prov_self" value="self" checked><span><b>My own server</b><i>Postgres you run yourself.</i></span></label>
+            <label class="choice"><input type="radio" name="provider" id="prov_supabase" value="supabase"><span><b>Supabase</b><i>Through the session pooler.</i></span></label>
+            <label class="choice"><input type="radio" name="provider" id="prov_neon" value="neon"><span><b>Neon</b><i>Through the direct, non-pooled endpoint.</i></span></label>
+          </div>
           <div class="field" data-for="jdbc_url">
             <label for="jdbc_url">JDBC URL</label>
             <input type="text" id="jdbc_url" value="jdbc:postgresql://db.acme.example:5432/keyra?sslmode=verify-full">
-            <span class="hint">Needs <code>sslmode=require</code>, <code>verify-ca</code> or <code>verify-full</code>. Connect directly or through a session-mode pooler, not a transaction-mode one.</span>
+            <span class="hint" id="jdbcHint">Needs <code>sslmode=require</code>, <code>verify-ca</code> or <code>verify-full</code>. Connect directly or through a session-mode pooler, not a transaction-mode one.</span>
             <div class="err"></div>
           </div>
           <div class="row">
@@ -317,6 +298,42 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
       </fieldset>
 
       <fieldset>
+        <legend>Project</legend>
+        <div class="row">
+          <div class="field" data-for="project_id">
+            <label for="project_id">GCP project ID</label>
+            <input type="text" id="project_id" value="acme-keyra-prod">
+            <div class="err"></div>
+          </div>
+          <div class="field" data-for="region">
+            <label for="region">Region</label>
+            <input type="text" id="region" list="regions" value="europe-west1">
+            <datalist id="regions">
+              <option value="us-central1"><option value="us-east1"><option value="us-east4"><option value="us-west1">
+              <option value="northamerica-northeast1"><option value="southamerica-east1">
+              <option value="europe-west1"><option value="europe-west2"><option value="europe-west3"><option value="europe-west4">
+              <option value="asia-south1"><option value="asia-southeast1"><option value="asia-northeast1"><option value="australia-southeast1">
+            </datalist>
+            <div class="err"></div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field" data-for="name">
+            <label for="name">Instance name</label>
+            <input type="text" id="name" value="keyra">
+            <span class="hint">Starts every resource name. 3–22 lowercase letters, digits and hyphens.</span>
+            <div class="err"></div>
+          </div>
+        </div>
+        <div class="field" data-for="admin_email">
+          <label for="admin_email">First admin's email</label>
+          <input type="email" id="admin_email" value="admin@acme.example">
+          <span class="hint">Created when Keyra first starts. Terraform generates its password; the steps below show how to read it.</span>
+          <div class="err"></div>
+        </div>
+      </fieldset>
+
+      <fieldset>
         <legend>Capacity</legend>
         <div class="row">
           <div class="field" data-for="replicas">
@@ -350,28 +367,37 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
     </form>
 
     <div class="out" aria-live="polite">
-      <section class="panel maintf">
-        <div class="codehead">
-          <h2>Your main.tf</h2>
-          <span><button type="button" class="copy" data-copy="maintf">Copy</button> <button type="button" class="copy" data-copy="maintf" data-download="main.tf">Download</button></span>
-        </div>
-        <p class="sub">Save it as <code>main.tf</code> in an empty folder. Values that match the defaults are left out.</p>
-        <pre id="maintf"></pre>
-      </section>
-
-      <section class="panel">
-        <h2>What Terraform creates</h2>
-        <p class="sub">Compare this with <code>terraform plan</code> before you apply.</p>
-        <ul class="res" id="resources"></ul>
-        <div class="total" id="resTotal"></div>
-        <div class="math" id="math"></div>
-      </section>
-
-      <section class="panel">
-        <h2>Deploy it</h2>
-        <p class="sub">Run these in the folder with main.tf, logged in to <code>gcloud</code>, with Terraform 1.11 or later.</p>
-        <ol class="steps" id="steps"></ol>
-      </section>
+      <ol class="journey">
+        <li class="station yours">
+          <h2>Prepare your database</h2>
+          <p class="sub" id="guideSub"></p>
+          <ol class="steps" id="guide"></ol>
+        </li>
+        <li class="station maintf">
+          <div class="codehead">
+            <h2>Save main.tf</h2>
+            <span><button type="button" class="copy" data-copy="maintf">Copy</button> <button type="button" class="copy" data-copy="maintf" data-download="main.tf">Download</button></span>
+          </div>
+          <p class="sub">Save it as <code>main.tf</code> in an empty folder. Values that match the defaults are left out.</p>
+          <pre id="maintf"></pre>
+          <details>
+            <summary>What Terraform creates · <span id="resTotal"></span></summary>
+            <p class="sub">Compare this with <code>terraform plan</code> before you apply.</p>
+            <ul class="res" id="resources"></ul>
+          </details>
+          <div class="math" id="math"></div>
+        </li>
+        <li class="station">
+          <h2>Deploy</h2>
+          <p class="sub">Run these in the folder with main.tf, logged in to <code>gcloud</code>, with Terraform 1.11 or later.</p>
+          <ol class="steps" id="steps"></ol>
+        </li>
+        <li class="station end">
+          <h2>Sign in</h2>
+          <p class="sub">Your instance is live at the url output.</p>
+          <ol class="steps" id="finish"></ol>
+        </li>
+      </ol>
     </div>
   </div>
 
@@ -397,6 +423,7 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
       TEXT_IDS.forEach((id) => { if (typeof saved[id] === "string") $(id).value = saved[id]; });
       if (saved.db) $("db_" + saved.db).checked = true;
       if (saved.net) $("net_" + saved.net).checked = true;
+      if (saved.provider) $("prov_" + saved.provider).checked = true;
       if (typeof saved.deletion_protection === "boolean") $("deletion_protection").checked = saved.deletion_protection;
     }
   } catch (e) { /* ignore */ }
@@ -406,6 +433,7 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
     TEXT_IDS.forEach((id) => (v[id] = $(id).value.trim()));
     v.db = document.querySelector('input[name="db"]:checked').value;
     v.net = document.querySelector('input[name="net"]:checked').value;
+    v.provider = document.querySelector('input[name="provider"]:checked').value;
     v.deletion_protection = $("deletion_protection").checked;
     ["replicas", "max_replicas", "db_pool_size"].forEach((k) => (v[k] = v[k] === "" ? NaN : Number(v[k])));
     v.apps = v.db === "cloudsql" ? v.app_dbs.split(/[\s,]+/).filter(Boolean) : [];
@@ -436,6 +464,7 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
       if (!v.jdbc_url.startsWith("jdbc:postgresql://")) e.jdbc_url = "Start it with jdbc:postgresql://";
       else if (!/[?&]sslmode=(require|verify-ca|verify-full)(&|$)/.test(v.jdbc_url)) e.jdbc_url = "Add sslmode=require, verify-ca or verify-full. Keyra only connects over TLS.";
       else if (/:6543(\/|$)/.test(v.jdbc_url.slice(18))) e.jdbc_url = "Port 6543 is usually a transaction-mode pooler, which breaks migrations. Use the direct or session-mode port.";
+      else if (v.provider === "neon" && /^[^/?]*-pooler[.:/?]/.test(v.jdbc_url.slice(18))) e.jdbc_url = "Use the non-pooled endpoint; Neon's pooler is transaction mode and breaks migrations.";
       if (!v.db_username) e.db_username = "Enter the database user.";
       if (!/^(projects\/[^/]+\/secrets\/)?[A-Za-z0-9_-]{1,255}$/.test(v.secret_id)) e.secret_id = "Use a secret name, or projects/<project>/secrets/<name>.";
       if (v.net === "private") {
@@ -524,6 +553,7 @@ ${mod}
   function hop(label) { return `<li class="hop"><span>${esc(label)}</span></li>`; }
 
   function topology(v) {
+    const label = { supabase: "Supabase", neon: "Neon" }[v.provider] || "Your Postgres";
     let html = stop("Users and products", "public internet", "ext") + hop("HTTPS")
       + stop("Cloud Run", `${v.name} · ${v.replicas}–${v.max_replicas} instances`);
     if (v.db === "cloudsql") {
@@ -533,14 +563,14 @@ ${mod}
       html += hop("private VPC") + stop("VPC", `${v.name} · Direct VPC egress`) + hop("private IP, TLS")
         + stop("Cloud SQL", `${v.cloud_sql_version.replace("POSTGRES_", "Postgres ")} · ${v.db_tier}`, "", apps);
     } else if (v.net === "public") {
-      html += hop("internet, TLS") + stop("Your Postgres", dbHost(v.jdbc_url), "yours");
+      html += hop("internet, TLS") + stop(label, dbHost(v.jdbc_url), "yours");
     } else if (v.net === "static") {
       html += hop("all traffic") + stop("Cloud NAT", "reserved static IP") + hop("internet, TLS")
-        + stop("Your Postgres", dbHost(v.jdbc_url) + " · allowlist the IP", "yours");
+        + stop(label, dbHost(v.jdbc_url) + " · allowlist the IP", "yours");
     } else {
       const net = (v.network.split("/").pop()) || "your VPC";
       html += hop("private ranges") + stop("Your network", `${net} · peering, VPN or Interconnect`, "yours") + hop("TLS")
-        + stop("Your Postgres", dbHost(v.jdbc_url), "yours");
+        + stop(label, dbHost(v.jdbc_url), "yours");
     }
     $("topo").innerHTML = html;
     $("topo").style.setProperty("--n", $("topo").querySelectorAll(".stop").length);
@@ -572,7 +602,7 @@ ${mod}
     if (staticIp) rows.push(["Static IP, router, NAT", 3]);
     const total = rows.reduce((n, [, c]) => n + c, 0);
     $("resources").innerHTML = rows.map(([k, c]) => `<li><span>${esc(k)}</span><span>${c}</span></li>`).join("");
-    $("resTotal").textContent = `About ${total} resources in total.`;
+    $("resTotal").textContent = `about ${total} resources`;
 
     const peak = v.max_replicas * v.db_pool_size;
     let tail, warn = false;
@@ -594,12 +624,6 @@ ${mod}
   function steps(v) {
     const p = v.project_id, r = v.region;
     const list = [];
-    if (v.db === "external") {
-      const m = v.secret_id.match(/^projects\/([^/]+)\/secrets\/(.+)$/);
-      const sp = m ? m[1] : p, sn = m ? m[2] : v.secret_id;
-      list.push(["Store the database password", "Only Secret Manager sees it. Terraform and this page never do.",
-        `read -rs DB_PASSWORD\nprintf '%s' "$DB_PASSWORD" | gcloud secrets create ${sn} \\\n  --data-file=- --project=${sp}\nunset DB_PASSWORD`]);
-    }
     list.push(["Create the state bucket", "Holds Terraform state. Versioning lets you recover earlier states.",
       `gcloud storage buckets create gs://${p}-tfstate --location=${r} \\\n  --uniform-bucket-level-access --project=${p}\ngcloud storage buckets update gs://${p}-tfstate --versioning`]);
     if (v.db === "external" && v.net === "static") {
@@ -608,17 +632,80 @@ ${mod}
     }
     list.push(["Deploy", "Save main.tf in an empty folder, then run this there. Terraform shows the plan and asks before it applies.",
       "terraform init && terraform apply"]);
-    list.push(["Sign in as the admin", `Sign in at the url output as ${v.admin_email}. This prints the generated password.`,
+    renderSteps($("steps"), list, "step");
+    const fin = [];
+    fin.push(["Sign in as the admin", `Sign in at the url output as ${v.admin_email}. This prints the generated password.`,
       `gcloud secrets versions access latest --secret=${v.name}-bootstrap-admin-password --project=${p}`]);
     if (v.apps.length) {
       const grants = v.apps.map((n) => `gcloud secrets add-iam-policy-binding ${v.name}-${n}-db-password --project=${p} \\\n  --member=serviceAccount:YOUR_APP_SA --role=roles/secretmanager.secretAccessor`).join("\n");
       const own = v.apps.map((n) => `#   alter database ${n} owner to ${n}; revoke all on database ${n} from public;`).join("\n");
-      list.push(["Connect your apps", "Each app gets its JDBC URL from the outputs and reads its password from its own secret. It reaches the database through Direct VPC egress into the vpc_network and vpc_subnetwork outputs.",
+      fin.push(["Connect your apps", "Each app gets its JDBC URL from the outputs and reads its password from its own secret. It reaches the database through Direct VPC egress into the vpc_network and vpc_subnetwork outputs.",
         `terraform output -json app_databases\n${grants}\n# Then, connected as each app's user, keep other users out of its database:\n${own}`]);
     }
-    $("steps").innerHTML = list.map(([h, note, code], i) => `<li><h3>${esc(h)}</h3><div><p class="note">${esc(note)}</p>
-      <div class="codehead"><button type="button" class="copy" data-copy="step${i}" aria-label="Copy: ${esc(h)}">Copy</button></div>
-      <pre id="step${i}">${highlightSh(code)}</pre></div></li>`).join("");
+    renderSteps($("finish"), fin, "finish");
+  }
+
+  // A step without code is prose only: no copy button, no <pre>.
+  function renderSteps(el, list, prefix) {
+    el.innerHTML = list.map(([h, note, code], i) => `<li><h3>${esc(h)}</h3><div><p class="note">${esc(note)}</p>${code == null ? "" : `
+      <div class="codehead"><button type="button" class="copy" data-copy="${prefix}${i}" aria-label="Copy: ${esc(h)}">Copy</button></div>
+      <pre id="${prefix}${i}">${highlightSh(code)}</pre>`}</div></li>`).join("");
+  }
+
+  const dbName = (url) => (url.match(/^jdbc:postgresql:\/\/[^/?]+\/([^?]*)/) || [])[1] || "keyra";
+
+  function guide(v) {
+    const p = v.project_id, list = [];
+    const peak = v.max_replicas * v.db_pool_size;
+    const peakTxt = Number.isFinite(peak) ? `${v.max_replicas} × ${v.db_pool_size} = ${peak}` : "max instances × connections each";
+    if (v.db === "cloudsql") {
+      $("guideSub").textContent = "Terraform builds the database. This is what you get and how to look after it.";
+      const small = { "db-f1-micro": 25, "db-g1-small": 50 }[v.db_tier];
+      list.push(["Pick a size", `Keyra opens up to ${peakTxt} connections at full scale${v.apps.length ? ", plus what your apps open" : ""}. ${small ? `${v.db_tier} allows ${small}; it is for testing only.` : "Compare that with the machine's max_connections."} The size is the Machine size field.`]);
+      list.push(["What you get", `Private IP only, no public address. TLS is enforced. Daily backups and point-in-time recovery are on. Deletion protection is ${v.deletion_protection ? "on" : "off"}.`]);
+      list.push(["Look at the data", "Use Cloud SQL Studio: open the instance in the console and choose Cloud SQL Studio. To see the backups:",
+        `gcloud sql backups list --instance=${v.name} --project=${p}`]);
+      list.push(["Restore a backup", `Restoring rolls back every database on the instance${v.apps.length ? `, including ${v.apps.join(", ")}` : ""}. Take BACKUP_ID from the list above.`,
+        `gcloud sql backups restore BACKUP_ID --restore-instance=${v.name} --project=${p}`]);
+    } else {
+      const db = dbName(v.jdbc_url), u = v.db_username, host = dbHost(v.jdbc_url);
+      const m = v.secret_id.match(/^projects\/([^/]+)\/secrets\/(.+)$/);
+      const sp = m ? m[1] : p, sn = m ? m[2] : v.secret_id;
+      const mk = (role, dbn) => `read -rs PW\npsql -h ${host.replace(/:\d+$/, "")} -U postgres -v pw="$PW" <<'SQL'\ncreate role ${role} login password :'pw';\ncreate database ${dbn} owner ${role};\nrevoke all on database ${dbn} from public;\nSQL\nunset PW`;
+      const budget = ["Connection budget", `Keyra opens up to ${peakTxt} connections at full scale. Your database's limit must cover that, plus what other apps use.`];
+      if (v.provider === "supabase") {
+        $("guideSub").textContent = "Steps for Supabase, with your values filled in.";
+        list.push(["Copy the session pooler string", "In your project choose Connect, then Session pooler. Make it a JDBC URL on port 5432 with sslmode=require: jdbc:postgresql://aws-0-REGION.pooler.supabase.com:5432/postgres?sslmode=require. The user is postgres.PROJECT_REF. The direct db.PROJECT_REF.supabase.co host is IPv6 only and Cloud Run egress is IPv4. Port 6543 is transaction mode and breaks migrations."]);
+        list.push(["Optional: a dedicated role", "In the SQL editor, run this, then end the URL with /keyra and set the user to keyra.PROJECT_REF. Pick the password in the editor; the page never sees it.",
+          "create role keyra login password 'CHOOSE_A_PASSWORD';\ngrant keyra to postgres;\ncreate database keyra owner keyra;\nrevoke all on database keyra from public;"]);
+        list.push(["Network restrictions", "If you turned them on, choose From a fixed IP above and allow the egress_ip address in Supabase's network restrictions."]);
+        list.push(["Connection budget", `Keyra opens up to ${peakTxt} connections at full scale. Check that your plan's pooler client limit covers it, plus other apps.`]);
+      } else if (v.provider === "neon") {
+        $("guideSub").textContent = "Steps for Neon, with your values filled in.";
+        list.push(["Use the direct connection string", "Copy it from the dashboard with pooling off, so the host has no -pooler. As a JDBC URL: jdbc:postgresql://ENDPOINT.REGION.aws.neon.tech/DATABASE?sslmode=require."]);
+        list.push(["Create a role and database", "In the Neon console create a role and a database owned by it, then put them in the URL and the Username field."]);
+        list.push(["IP allow", "On paid plans, if you restrict IPs, choose From a fixed IP above and allow the egress_ip address."]);
+        list.push(["Scale to zero", "A suspended compute adds cold-start latency to the first query. Turn scale to zero off for production."]);
+        list.push(budget);
+      } else {
+        $("guideSub").textContent = "Steps for a Postgres server you run, with your values filled in.";
+        list.push(["Postgres 15+ with TLS", "Set this in postgresql.conf and restart. Use sslmode=verify-full only if the certificate matches the host name in your URL.",
+          `listen_addresses = '*'\nssl = on\nssl_cert_file = 'server.crt'\nssl_key_file = 'server.key'`]);
+        list.push(["Create Keyra's user and database", "Run this as a superuser. The password comes from your shell, not from this page.", mk(u, db)]);
+        const src = { public: "0.0.0.0/0", static: "EGRESS_IP/32", private: "SUBNET_RANGE" }[v.net];
+        const sub = v.subnetwork.split("/");
+        const hba = `# pg_hba.conf, then: select pg_reload_conf();\nhostssl ${db} ${u} ${src} scram-sha-256`;
+        const hbaNote = { public: "Open to every address. The fixed-IP option above lets you narrow it to one.",
+          static: "Replace EGRESS_IP with the address from the reserve-IP deploy step below.",
+          private: "Replace SUBNET_RANGE with the range of the Cloud Run subnetwork:" }[v.net];
+        list.push(["Let Keyra in", hbaNote, hba + (v.net === "private" ? `\n\ngcloud compute networks subnets describe ${sub[5] || "SUBNETWORK"} \\\n  --region=${sub[3] || v.region} --project=${sub[1] || p} --format='value(ipCidrRange)'` : "")]);
+        list.push(["Connection budget", `Keyra opens up to ${peakTxt} connections at full scale. Compare with:`, "show max_connections;"]);
+        list.push(["Backups are yours", "Set up pg_dump or your own backup tool, and test a restore."]);
+      }
+      list.push(["Store the database password", "Only Secret Manager sees it. Terraform and this page never do.",
+        `read -rs DB_PASSWORD\nprintf '%s' "$DB_PASSWORD" | gcloud secrets create ${sn} \\\n  --data-file=- --project=${sp}\nunset DB_PASSWORD`]);
+    }
+    renderSteps($("guide"), list, "guide");
   }
 
   function render() {
@@ -643,15 +730,23 @@ ${mod}
     $("statusText").textContent = n
       ? `${n} ${n === 1 ? "field needs" : "fields need"} fixing`
       : "Ready to deploy";
+    $("status").title = n ? "Go to the first field that needs fixing" : "";
 
-    $("exampleTag").hidden = !TEXT_IDS.every((id) => $(id).value === EXAMPLE[id]);
+    const same = TEXT_IDS.every((id) => $(id).value === EXAMPLE[id]);
+    $("exampleTag").hidden = !same;
+    $("reset").hidden = same && v.db === "cloudsql" && v.net === "public" && v.provider === "self" && v.deletion_protection;
 
     topology(v);
     resources(v);
     $("maintf").innerHTML = highlightHcl(mainTf(v));
     steps(v);
+    guide(v);
+    $("jdbcHint").innerHTML = {
+      supabase: "Use the <b>session pooler</b>: <code>aws-0-REGION.pooler.supabase.com:5432</code>, user <code>postgres.PROJECT_REF</code>. Not port 6543, and not the IPv6-only <code>db.PROJECT_REF.supabase.co</code> host.",
+      neon: "Use the <b>non-pooled</b> endpoint: the host without <code>-pooler</code>. Neon's pooler is transaction mode.",
+    }[v.provider] || "Needs <code>sslmode=require</code>, <code>verify-ca</code> or <code>verify-full</code>. Connect directly or through a session-mode pooler, not a transaction-mode one.";
 
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(Object.assign({}, Object.fromEntries(TEXT_IDS.map((id) => [id, $(id).value])), { db: v.db, net: v.net, deletion_protection: v.deletion_protection }))); } catch (e) { /* ignore */ }
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(Object.assign({}, Object.fromEntries(TEXT_IDS.map((id) => [id, $(id).value])), { db: v.db, net: v.net, provider: v.provider, deletion_protection: v.deletion_protection }))); } catch (e) { /* ignore */ }
   }
 
   document.addEventListener("click", async (ev) => {
@@ -681,6 +776,20 @@ ${mod}
     setTimeout(() => { btn.textContent = "Copy"; btn.classList.remove("done"); }, 1800);
   });
 
+  $("status").addEventListener("click", () => {
+    const f = document.querySelector(".field.invalid");
+    if (!f) return;
+    const d = f.closest("details");
+    if (d) d.open = true;
+    f.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    $(f.dataset.for).focus({ preventScroll: true });
+  });
+  $("reset").addEventListener("click", () => {
+    try { localStorage.removeItem(STORE_KEY); } catch (e) { /* ignore */ }
+    TEXT_IDS.forEach((id) => ($(id).value = EXAMPLE[id]));
+    ["db_cloudsql", "net_public", "prov_self", "deletion_protection"].forEach((id) => ($(id).checked = true));
+    render();
+  });
   $("cfg").addEventListener("input", render);
   $("cfg").addEventListener("change", render);
   $("cfg").addEventListener("submit", (e) => e.preventDefault());

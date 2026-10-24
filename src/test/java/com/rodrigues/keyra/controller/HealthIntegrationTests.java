@@ -27,7 +27,14 @@ class HealthIntegrationTests {
 
     @Test
     void otherActuatorEndpointsAreDenied() {
-        for (String path : new String[] {"/actuator", "/actuator/env", "/actuator/beans", "/actuator/info"}) {
+        for (String path : new String[] {
+            "/actuator",
+            "/actuator/env",
+            "/actuator/beans",
+            "/actuator/info",
+            "/actuator/metrics",
+            "/actuator/prometheus"
+        }) {
             assertThat(mvc.get().uri(path).exchange()).hasStatus4xxClientError();
         }
     }

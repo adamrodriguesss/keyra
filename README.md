@@ -366,6 +366,8 @@ Any provider or self-hosted Postgres works if it meets these requirements:
 - `max_replicas × KEYRA_DB_POOL_SIZE` (default 4 × 10) must fit within the database's `max_connections`; lower `db_pool_size` for small plans.
 - Backups, high availability and upgrades are your responsibility.
 
+The [configurator](docs/configurator.html) has step-by-step setup guides for a self-managed server, Supabase and Neon.
+
 #### Sharing the database server with your own apps
 
 - One server, one database and one user per app. Keyra's database is Keyra's alone: never point another app at it or grant another app's user access, and read Keyra data only through its API.
@@ -375,6 +377,19 @@ Any provider or self-hosted Postgres works if it meets these requirements:
 - Keyra's V7 migration takes ownership of its database and schema and revokes PUBLIC access, so other users on the instance can't connect to, drop or alter it. Do the same for your app's database: `alter database <db> owner to <user>; revoke all on database <db> from public;`.
 - Connection budget: `max_replicas × db_pool_size` plus every other app's pool must fit `max_connections`; resize `db_tier` if needed.
 - Shared fate: a restore or point-in-time recovery of the instance rolls back every database on it.
+
+#### Metrics
+
+Set `metrics_enabled = true` to export metrics to Google Cloud Managed Service for Prometheus. Keyra pushes OTLP every 60 seconds to an OpenTelemetry Collector sidecar, which forwards it. It is off by default because pushing between requests needs CPU always allocated, and the sidecar adds 1 vCPU per instance. Both are billed for as long as each instance runs.
+
+What to watch (OTLP names; Prometheus spells them with underscores and unit or `_total` suffixes, e.g. `http_server_requests_milliseconds_bucket` and `keyra_key_validations_total`; durations are in milliseconds, so the SLO bucket is `le="50"`):
+
+- `http.server.requests`: request rate, latency (p95 and a 50 ms SLO bucket) and status per endpoint. Validation latency is `uri="/api/v1/keys/validate"`, and failed logins are `status="401"` on the login URIs.
+- `keyra.key.validations{outcome="valid"|"invalid"}`: validation results, since that endpoint always answers 200. There is no reason tag, by design.
+- `hikaricp.connections.*`: the database pool, the first thing to saturate under validation load.
+- `jvm.*` and `process.*`: memory, garbage collection, threads and CPU.
+
+Outside Terraform, set `KEYRA_METRICS_ENABLED=true` and point `KEYRA_METRICS_OTLP_URL` at any OTLP/HTTP collector.
 
 ### Configuration
 
@@ -389,5 +404,6 @@ Environment variables, populated by Terraform in deployed instances:
 | `KEYRA_KEY_ROTATION_GRACE_HOURS` | Old-secret grace period after rotation (default 24) |
 | `KEYRA_DB_POOL_SIZE` | Database connections per instance (default 10) |
 | `PORT` | HTTP port (default 8080; set by Cloud Run) |
+| `KEYRA_METRICS_ENABLED`, `KEYRA_METRICS_OTLP_URL` | Push metrics over OTLP (default off; URL default `http://localhost:4318/v1/metrics`) |
 
-`GET /actuator/health` (with `/liveness` and `/readiness` probes) is public; every other actuator endpoint is denied.
+`GET /actuator/health` (with `/liveness` and `/readiness` probes) is public; every other actuator endpoint is denied. Metrics are pushed, never served (see [Metrics](#metrics)).

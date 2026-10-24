@@ -33,6 +33,7 @@ module "keyra" {
   db_pool_size             = var.db_pool_size
   cloud_sql_version        = var.cloud_sql_version
   deletion_protection      = var.deletion_protection
+  metrics_enabled          = var.metrics_enabled
   bootstrap_admin_email    = var.bootstrap_admin_email
   bootstrap_admin_password = var.bootstrap_admin_password
   external_database        = var.external_database
@@ -85,6 +86,11 @@ variable "cloud_sql_version" {
 }
 
 variable "deletion_protection" {
+  type    = bool
+  default = null
+}
+
+variable "metrics_enabled" {
   type    = bool
   default = null
 }

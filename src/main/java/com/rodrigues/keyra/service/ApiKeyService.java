@@ -20,6 +20,8 @@ import com.rodrigues.keyra.repository.ApiKeyRepository;
 import com.rodrigues.keyra.repository.AuditEventRepository;
 import com.rodrigues.keyra.security.ApiKeys;
 import com.rodrigues.keyra.service.ManagerRealm.Actor;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -42,18 +44,24 @@ public class ApiKeyService {
     private final ProductService products;
     private final KeyraProperties properties;
     private final Clock clock;
+    // Validation always answers 200, so http.server.requests can't tell outcomes apart. No reason tag: see validate.
+    private final Counter validKeys;
+    private final Counter invalidKeys;
 
     public ApiKeyService(
             ApiKeyRepository keys,
             AuditEventRepository audit,
             ProductService products,
             KeyraProperties properties,
-            Clock clock) {
+            Clock clock,
+            MeterRegistry meters) {
         this.keys = keys;
         this.audit = audit;
         this.products = products;
         this.properties = properties;
         this.clock = clock;
+        this.validKeys = meters.counter("keyra.key.validations", "outcome", "valid");
+        this.invalidKeys = meters.counter("keyra.key.validations", "outcome", "invalid");
     }
 
     /** Who acts on a key, for the audit trail. Exactly one of the two is set. */
@@ -241,7 +249,7 @@ public class ApiKeyService {
     public ValidateKeyResponse validate(String productSlug, String fullKey) {
         String hash = ApiKeys.hash(fullKey);
         Instant now = clock.instant();
-        return ApiKeys.prefixOf(fullKey)
+        ValidateKeyResponse result = ApiKeys.prefixOf(fullKey)
                 .flatMap(keys::findByPrefix)
                 .filter(k -> statusOf(k, now) == ApiKeyStatus.ACTIVE
                         && k.matches(hash, productSlug, now)
@@ -254,5 +262,7 @@ public class ApiKeyService {
                         k.getExpiresAt(),
                         k.getOwnerId()))
                 .orElse(ValidateKeyResponse.INVALID);
+        (result instanceof ValidateKeyResponse.Valid ? validKeys : invalidKeys).increment();
+        return result;
     }
 }

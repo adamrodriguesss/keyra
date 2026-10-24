@@ -2,6 +2,7 @@
 locals {
   create_db   = var.external_database == null
   use_own_vpc = local.create_db || var.egress.static_ip
+  metrics     = var.metrics_enabled
 
   # Network Cloud Run sends egress into: the module VPC, the caller's VPC, or none (public internet).
   vpc_network    = local.use_own_vpc ? one(google_compute_network.vpc[*].id) : var.egress.network
@@ -35,6 +36,7 @@ resource "google_project_service" "apis" {
     local.use_own_vpc ? ["compute.googleapis.com"] : [],
     local.use_ghcr ? ["artifactregistry.googleapis.com"] : [],
     local.create_db ? ["sqladmin.googleapis.com", "servicenetworking.googleapis.com"] : [],
+    local.metrics ? ["monitoring.googleapis.com"] : [],
   ))
 
   project            = var.project_id

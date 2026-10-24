@@ -13,6 +13,23 @@ locals {
     KEYRA_JWT_KEY_ID                  = random_id.jwt_key_id.hex
     KEYRA_BOOTSTRAP_ADMIN_EMAIL       = var.bootstrap_admin_email
     LOGGING_STRUCTURED_FORMAT_CONSOLE = "ecs"
+    # Keyra pushes OTLP to its default localhost:4318, where the collector sidecar listens.
+    KEYRA_METRICS_ENABLED = tostring(local.metrics)
+  }
+
+  collector_image = "us-docker.pkg.dev/cloud-ops-agents-artifacts/google-cloud-opentelemetry-collector/otelcol-google:0.163.1"
+  collector_config = {
+    receivers  = { otlp = { protocols = { http = { endpoint = "localhost:4318" } } } }
+    processors = { batch = {}, resource_detection = { detectors = ["gcp"] } }
+    exporters  = { googlemanagedprometheus = {} }
+    # Probes reach the sidecar from outside its loopback, so health listens on all interfaces; OTLP stays local.
+    extensions = { health_check = { endpoint = "0.0.0.0:13133" } }
+    service = {
+      extensions = ["health_check"]
+      pipelines = {
+        metrics = { receivers = ["otlp"], processors = ["resource_detection", "batch"], exporters = ["googlemanagedprometheus"] }
+      }
+    }
   }
 
   # Pinned versions (not "latest"), so a rotation rolls out a new revision.
@@ -61,7 +78,10 @@ resource "google_cloud_run_v2_service" "keyra" {
     }
 
     containers {
+      name  = "keyra"
       image = local.image
+      # Start after the collector, so the first metrics push finds it.
+      depends_on = local.metrics ? ["otel-collector"] : []
 
       ports {
         container_port = 8080
@@ -73,6 +93,8 @@ resource "google_cloud_run_v2_service" "keyra" {
           memory = "1Gi"
         }
         startup_cpu_boost = true
+        # Metrics are pushed from a background thread, which needs CPU between requests.
+        cpu_idle = !local.metrics
       }
 
       dynamic "env" {
@@ -113,15 +135,52 @@ resource "google_cloud_run_v2_service" "keyra" {
         period_seconds = 30
       }
     }
+
+    dynamic "containers" {
+      for_each = local.metrics ? [1] : []
+      content {
+        name  = "otel-collector"
+        image = local.collector_image
+        args  = ["--config=env:OTEL_CONFIG"]
+
+        env {
+          name  = "OTEL_CONFIG"
+          value = yamlencode(local.collector_config)
+        }
+
+        resources {
+          limits = {
+            cpu    = "1"
+            memory = "256Mi"
+          }
+          cpu_idle = false
+        }
+
+        startup_probe {
+          http_get {
+            path = "/"
+            port = 13133
+          }
+        }
+      }
+    }
   }
 
   depends_on = [
     google_project_service.apis,
     google_artifact_registry_repository.ghcr,
     google_secret_manager_secret_iam_member.run,
+    google_project_iam_member.metric_writer,
     google_sql_user.keyra,
     google_sql_database.keyra,
   ]
+}
+
+resource "google_project_iam_member" "metric_writer" {
+  count   = local.metrics ? 1 : 0
+  project = var.project_id
+  role    = "roles/monitoring.metricWriter"
+  member  = google_service_account.run.member
 }
 
 # A warning, not a failure: the instance may still be starting after the retries.
