@@ -353,6 +353,7 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
           </div>
         </div>
         <label class="check" for="deletion_protection"><input type="checkbox" id="deletion_protection" checked><span><span class="label">Protect from deletion</span><br><span class="hint">Stops <code>terraform destroy</code> from deleting the database and service. Turn it off only for throwaway instances.</span></span></label>
+        <label class="check" for="metrics_enabled"><input type="checkbox" id="metrics_enabled"><span><span class="label">Export metrics</span><br><span class="hint">Sends metrics to Managed Service for Prometheus through a collector sidecar. Costs more: CPU stays allocated while each instance runs, and the sidecar adds 1 vCPU per instance.</span></span></label>
       </fieldset>
 
       <details>
@@ -409,7 +410,7 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
 <script>
 (() => {
   const $ = (id) => document.getElementById(id);
-  const KEYRA_VERSION = "0.1.0"; // bump together with local.keyra_version in the module
+  const KEYRA_VERSION = "0.2.0"; // bump together with local.keyra_version in the module
   const DEFAULTS = { replicas: 2, max_replicas: 4, db_pool_size: 10, db_tier: "db-custom-1-3840", cloud_sql_version: "POSTGRES_18", deletion_protection: true };
   const TEXT_IDS = ["project_id", "region", "name", "image", "admin_email", "jdbc_url", "db_username", "secret_id", "network", "subnetwork", "replicas", "max_replicas", "db_pool_size", "db_tier", "cloud_sql_version", "app_dbs"];
   const STORE_KEY = "keyra-gcp-configurator";
@@ -425,6 +426,7 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
       if (saved.net) $("net_" + saved.net).checked = true;
       if (saved.provider) $("prov_" + saved.provider).checked = true;
       if (typeof saved.deletion_protection === "boolean") $("deletion_protection").checked = saved.deletion_protection;
+      if (typeof saved.metrics_enabled === "boolean") $("metrics_enabled").checked = saved.metrics_enabled;
     }
   } catch (e) { /* ignore */ }
 
@@ -435,6 +437,7 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
     v.net = document.querySelector('input[name="net"]:checked').value;
     v.provider = document.querySelector('input[name="provider"]:checked').value;
     v.deletion_protection = $("deletion_protection").checked;
+    v.metrics_enabled = $("metrics_enabled").checked;
     ["replicas", "max_replicas", "db_pool_size"].forEach((k) => (v[k] = v[k] === "" ? NaN : Number(v[k])));
     v.apps = v.db === "cloudsql" ? v.app_dbs.split(/[\s,]+/).filter(Boolean) : [];
     return v;
@@ -497,6 +500,7 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
       if (v.cloud_sql_version !== DEFAULTS.cloud_sql_version) extra.push(["cloud_sql_version", hclStr(v.cloud_sql_version)]);
     }
     if (!v.deletion_protection) extra.push(["deletion_protection", "false"]);
+    if (v.metrics_enabled) extra.push(["metrics_enabled", "true"]);
     let mod = attrs([["source", hclStr(`git::https://github.com/adamrodriguesss/keyra.git//infra/modules/keyra/gcp?ref=v${KEYRA_VERSION}`)]], "  ") + "\n\n" + attrs(top, "  ");
     if (extra.length) mod += "\n\n" + attrs(extra, "  ");
     if (v.apps.length) mod += "\n\n  app_databases = {\n" + attrs(v.apps.map((n) => [n, "{}"]), "    ") + "\n  }";
@@ -734,7 +738,7 @@ ${mod}
 
     const same = TEXT_IDS.every((id) => $(id).value === EXAMPLE[id]);
     $("exampleTag").hidden = !same;
-    $("reset").hidden = same && v.db === "cloudsql" && v.net === "public" && v.provider === "self" && v.deletion_protection;
+    $("reset").hidden = same && v.db === "cloudsql" && v.net === "public" && v.provider === "self" && v.deletion_protection && !v.metrics_enabled;
 
     topology(v);
     resources(v);
@@ -746,7 +750,7 @@ ${mod}
       neon: "Use the <b>non-pooled</b> endpoint: the host without <code>-pooler</code>. Neon's pooler is transaction mode.",
     }[v.provider] || "Needs <code>sslmode=require</code>, <code>verify-ca</code> or <code>verify-full</code>. Connect directly or through a session-mode pooler, not a transaction-mode one.";
 
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(Object.assign({}, Object.fromEntries(TEXT_IDS.map((id) => [id, $(id).value])), { db: v.db, net: v.net, provider: v.provider, deletion_protection: v.deletion_protection }))); } catch (e) { /* ignore */ }
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(Object.assign({}, Object.fromEntries(TEXT_IDS.map((id) => [id, $(id).value])), { db: v.db, net: v.net, provider: v.provider, deletion_protection: v.deletion_protection, metrics_enabled: v.metrics_enabled }))); } catch (e) { /* ignore */ }
   }
 
   document.addEventListener("click", async (ev) => {
@@ -788,6 +792,7 @@ ${mod}
     try { localStorage.removeItem(STORE_KEY); } catch (e) { /* ignore */ }
     TEXT_IDS.forEach((id) => ($(id).value = EXAMPLE[id]));
     ["db_cloudsql", "net_public", "prov_self", "deletion_protection"].forEach((id) => ($(id).checked = true));
+    $("metrics_enabled").checked = false;
     render();
   });
   $("cfg").addEventListener("input", render);

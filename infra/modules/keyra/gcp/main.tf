@@ -17,7 +17,7 @@ locals {
   db_password_secret = coalesce(try(var.external_database.password_secret_id, null), one(google_secret_manager_secret.db_password[*].id))
 
   # One tag pins both this module and the image it runs; the release workflow checks they match.
-  keyra_version = "0.1.0"
+  keyra_version = "0.2.0"
   use_ghcr      = var.image == null
   image         = coalesce(var.image, "${var.region}-docker.pkg.dev/${var.project_id}/${var.name}-ghcr/adamrodriguesss/keyra:${local.keyra_version}")
 

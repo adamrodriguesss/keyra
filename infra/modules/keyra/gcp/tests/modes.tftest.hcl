@@ -285,7 +285,7 @@ run "published_image" {
     error_message = "The GHCR proxy repository should exist when no image is set."
   }
   assert {
-    condition     = google_cloud_run_v2_service.keyra.template[0].containers[0].image == "europe-west1-docker.pkg.dev/acme/keyra-ghcr/adamrodriguesss/keyra:0.1.0"
+    condition     = google_cloud_run_v2_service.keyra.template[0].containers[0].image == "europe-west1-docker.pkg.dev/acme/keyra-ghcr/adamrodriguesss/keyra:0.2.0"
     error_message = "The service should run the published release through the proxy."
   }
   assert {
