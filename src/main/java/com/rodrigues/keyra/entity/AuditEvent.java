@@ -63,6 +63,11 @@ public class AuditEvent {
         return new AuditEvent(managerId, AuditActorType.MANAGER, action, targetType, targetId, at);
     }
 
+    public static AuditEvent byUser(
+            UUID userId, AuditAction action, AuditTargetType targetType, UUID targetId, Instant at) {
+        return new AuditEvent(userId, AuditActorType.USER, action, targetType, targetId, at);
+    }
+
     /** Dated at the key's expiry itself, not at when it was noticed. */
     public static AuditEvent keyExpired(ApiKey key) {
         return new AuditEvent(

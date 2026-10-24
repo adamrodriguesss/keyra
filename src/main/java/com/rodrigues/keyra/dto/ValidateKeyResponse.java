@@ -10,8 +10,9 @@ public sealed interface ValidateKeyResponse permits ValidateKeyResponse.Valid, V
 
     Invalid INVALID = new Invalid(false);
 
-    /** {@code expiresAt} is serialized as {@code null} for keys that never expire. */
-    record Valid(UUID keyId, String product, List<String> scopes, int rateLimitPerMinute, Instant expiresAt)
+    /** {@code expiresAt} is {@code null} for keys that never expire, {@code userId} for manager-issued keys. */
+    record Valid(
+            UUID keyId, String product, List<String> scopes, int rateLimitPerMinute, Instant expiresAt, UUID userId)
             implements ValidateKeyResponse {
 
         @JsonProperty

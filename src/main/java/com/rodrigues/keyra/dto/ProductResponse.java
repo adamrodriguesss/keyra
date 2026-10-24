@@ -3,6 +3,7 @@ package com.rodrigues.keyra.dto;
 import com.rodrigues.keyra.entity.Manager;
 import com.rodrigues.keyra.entity.Product;
 import java.time.Instant;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -13,6 +14,9 @@ public record ProductResponse(
         String slug,
         String description,
         boolean active,
+        boolean userKeysEnabled,
+        List<String> defaultUserScopes,
+        int maxKeysPerUser,
         Instant createdAt,
         Set<UUID> managerIds) {
 
@@ -24,6 +28,9 @@ public record ProductResponse(
                 product.getSlug(),
                 product.getDescription(),
                 product.isActive(),
+                product.isUserKeysEnabled(),
+                product.getDefaultUserScopes(),
+                product.getMaxKeysPerUser(),
                 product.getCreatedAt(),
                 product.getManagers().stream().map(Manager::getId).collect(Collectors.toSet()));
     }

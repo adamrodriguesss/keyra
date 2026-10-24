@@ -60,14 +60,21 @@ public class SecurityConfig {
         return realmChain(http, realm, "/api/auth", "/register", "/login", "/refresh", "/logout");
     }
 
+    /** The user-facing key routes live outside {@code /api/auth} but take the same user tokens. */
     @Bean
     @Order(2)
+    SecurityFilterChain userKeysChain(HttpSecurity http, UserRealm realm) {
+        return realmChain(http, realm, "/api/products");
+    }
+
+    @Bean
+    @Order(3)
     SecurityFilterChain managerChain(HttpSecurity http, ManagerRealm realm) {
         return realmChain(http, realm, "/api/manager", "/auth/login", "/auth/refresh", "/auth/logout");
     }
 
     @Bean
-    @Order(3)
+    @Order(4)
     SecurityFilterChain publicChain(HttpSecurity http) {
         http.authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.GET, "/.well-known/jwks.json")
                 .permitAll()

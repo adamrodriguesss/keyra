@@ -4,6 +4,7 @@ import com.rodrigues.keyra.dto.AssignManagersRequest;
 import com.rodrigues.keyra.dto.CreateProductRequest;
 import com.rodrigues.keyra.dto.ProductResponse;
 import com.rodrigues.keyra.dto.UpdateProductRequest;
+import com.rodrigues.keyra.dto.UserKeySettingsRequest;
 import com.rodrigues.keyra.service.ManagerRealm;
 import com.rodrigues.keyra.service.ProductService;
 import jakarta.validation.Valid;
@@ -63,5 +64,14 @@ public class ProductController {
     @PreAuthorize("hasRole('ADMIN')")
     public ProductResponse assignManagers(@PathVariable UUID id, @Valid @RequestBody AssignManagersRequest request) {
         return products.assignManagers(id, request);
+    }
+
+    /** Key management, so assigned managers may use it too; {@code require} gives everyone else a 404. */
+    @PutMapping("/{id}/user-keys")
+    public ProductResponse updateUserKeys(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id,
+            @Valid @RequestBody UserKeySettingsRequest request) {
+        return products.updateUserKeys(realm.actor(jwt), id, request);
     }
 }

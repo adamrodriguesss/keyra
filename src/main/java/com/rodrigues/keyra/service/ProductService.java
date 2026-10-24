@@ -4,6 +4,7 @@ import com.rodrigues.keyra.dto.AssignManagersRequest;
 import com.rodrigues.keyra.dto.CreateProductRequest;
 import com.rodrigues.keyra.dto.ProductResponse;
 import com.rodrigues.keyra.dto.UpdateProductRequest;
+import com.rodrigues.keyra.dto.UserKeySettingsRequest;
 import com.rodrigues.keyra.entity.Manager;
 import com.rodrigues.keyra.entity.Product;
 import com.rodrigues.keyra.exception.ConflictException;
@@ -66,6 +67,21 @@ public class ProductService {
     public Product require(Actor actor, UUID id) {
         return (actor.isAdmin() ? products.findById(id) : products.findByIdAndManagers_Id(id, actor.id()))
                 .orElseThrow(() -> new NotFoundException("Product not found."));
+    }
+
+    /** The active product with this slug if it lets users issue their own keys; otherwise a 404. */
+    @Transactional(readOnly = true)
+    public Product requireUserKeys(String slug) {
+        return products.findBySlug(slug)
+                .filter(p -> p.isActive() && p.isUserKeysEnabled())
+                .orElseThrow(() -> new NotFoundException("Product not found."));
+    }
+
+    @Transactional
+    public ProductResponse updateUserKeys(Actor actor, UUID id, UserKeySettingsRequest request) {
+        Product product = require(actor, id);
+        product.setUserKeys(request.enabled(), request.defaultScopes(), request.maxKeysPerUser());
+        return ProductResponse.from(product);
     }
 
     /** Partial update: a null field is left unchanged. */

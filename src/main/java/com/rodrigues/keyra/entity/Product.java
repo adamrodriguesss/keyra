@@ -11,8 +11,11 @@ import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 /** A company product. Its slug is immutable because products send it when validating keys. */
 @Entity
@@ -34,6 +37,16 @@ public class Product {
 
     @Column(nullable = false)
     private boolean active;
+
+    @Column(name = "user_keys_enabled", nullable = false)
+    private boolean userKeysEnabled;
+
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "default_user_scopes", nullable = false, columnDefinition = "text[]")
+    private List<String> defaultUserScopes = List.of();
+
+    @Column(name = "max_keys_per_user", nullable = false)
+    private int maxKeysPerUser = 10;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
@@ -85,6 +98,24 @@ public class Product {
 
     public void setActive(boolean active) {
         this.active = active;
+    }
+
+    public boolean isUserKeysEnabled() {
+        return userKeysEnabled;
+    }
+
+    public List<String> getDefaultUserScopes() {
+        return defaultUserScopes;
+    }
+
+    public int getMaxKeysPerUser() {
+        return maxKeysPerUser;
+    }
+
+    public void setUserKeys(boolean enabled, List<String> defaultScopes, int maxKeysPerUser) {
+        this.userKeysEnabled = enabled;
+        this.defaultUserScopes = defaultScopes;
+        this.maxKeysPerUser = maxKeysPerUser;
     }
 
     public Instant getCreatedAt() {

@@ -4,7 +4,7 @@ Keyra is a self-hosted identity and API key service for companies that run more 
 
 A company deploys its own Keyra instance with Terraform, on AWS or GCP, backed by its own Postgres database. No data is shared between companies.
 
-> **Status:** early development. Milestones 1 (manager and user login), 2 (products and managers), 3 (API keys) and 4 (key lifecycle) and 5 (Terraform on GCP) are done; 6 (Terraform on AWS) is next. This document is the specification the implementation follows.
+> **Status:** early development. Milestones 1 (manager and user login), 2 (products and managers), 3 (API keys) and 4 (key lifecycle), 5 (Terraform on GCP) and 6 (user-issued keys) are done; 7 (Terraform on AWS) is next. This document is the specification the implementation follows.
 
 ---
 
@@ -35,11 +35,11 @@ A company deploys its own Keyra instance with Terraform, on AWS or GCP, backed b
 | Manager | A person who administers Keyra itself. A separate account type from users. |
 | Admin | A manager with instance-wide rights. |
 | Product | A company product registered in Keyra. Owns a set of API keys. |
-| API key | A credential for programmatic access to one product, with scopes, expiry, and a rate limit. |
+| API key | A credential for programmatic access to one product, with scopes, expiry, and a rate limit. Manager-issued, or owned by a user (a user key). |
 
 ### Actors and roles
 
-- **Users** register and log in. They never see products, keys, or manager endpoints.
+- **Users** register and log in. They never see products or manager endpoints. On a product that enables user keys, they can mint and manage their own keys.
 - **Managers** have one of two roles:
   - `ADMIN`: creates products, adds and removes managers, assigns managers to products, and manages keys for every product.
   - `MANAGER`: manages keys and settings only for the products they are assigned to.
@@ -69,6 +69,7 @@ A company deploys its own Keyra instance with Terraform, on AWS or GCP, backed b
 - An admin creates a product with a name, a unique slug, and an optional description.
 - Products can be updated and deactivated. Deactivating a product makes all of its keys fail validation.
 - A product has zero or more assigned managers.
+- A product can enable user keys (`user_keys_enabled`, off by default) with default scopes for them and a cap on active keys per user (`max_keys_per_user`, default 10). Admins and assigned managers set this with `PUT /api/manager/products/{id}/user-keys`.
 
 ### 4. API keys
 
@@ -84,7 +85,9 @@ A company deploys its own Keyra instance with Terraform, on AWS or GCP, backed b
 - **Rotation:** issues a new secret under the same key id and prefix; the old secret stays valid for a grace period (`KEYRA_KEY_ROTATION_GRACE_HOURS`, default 24). Only one old secret is kept: rotating again inside the grace period ends the older one immediately.
 - **Revocation:** immediate and irreversible. Both the current and any old secret stop validating.
 - Only an `ACTIVE` key can be rotated or revoked; a revoked or expired key returns `409`. A key on a product the manager can't reach returns `404`.
-- Every lifecycle event (create, rotate, revoke, expire) is written to `audit_events` with a timestamp. Create, rotate and revoke record the acting manager. Expiry is derived, so it is recorded with actor type `SYSTEM` (no actor id) the first time any request finds the key expired (validation, listing, or a rotate/revoke attempt), dated at the key's `expires_at`. It is recorded exactly once per key; a revoked key never gets an expire event.
+- **User keys:** on a product with user keys enabled, a user creates, lists, rotates and revokes their own keys at `/api/products/{slug}/keys` with a user access token. Omitted scopes default to the product's `default_user_scopes`; the user may choose others, and never-expiring keys are not allowed. Keyra stays tier-agnostic: the company decides who may mint what. A missing, inactive or non-enabled product, or another user's key, returns `404`; reaching `max_keys_per_user` active keys returns `409`.
+- **Changing limits:** a manager changes a key's scopes or rate limit with `PATCH .../keys/{keyId}` (active keys only, `409` otherwise), for upgrades and downgrades. `GET .../keys?ownerUserId=` filters by owner. `POST .../products/{id}/users/{userId}/keys/revoke` revokes all of a user's active keys on the product (cancellation) and returns them.
+- Every lifecycle event (create, rotate, revoke, update, expire) is written to `audit_events` with a timestamp. Create, rotate, revoke and update record the actor: the manager, or the user (actor type `USER`) for user keys. Expiry is derived, so it is recorded with actor type `SYSTEM` (no actor id) the first time any request finds the key expired (validation, listing, or a rotate/revoke attempt), dated at the key's `expires_at`. It is recorded exactly once per key; a revoked key never gets an expire event.
 
 ### 5. Key validation
 
@@ -102,10 +105,12 @@ POST /api/v1/keys/validate
   "product": "orders",
   "scopes": ["orders:read"],
   "rateLimitPerMinute": 60,
-  "expiresAt": "2027-01-01T00:00:00Z"
+  "expiresAt": "2027-01-01T00:00:00Z",
+  "userId": null
 }
 ```
 
+- `userId` is the owning user for user keys, `null` for manager-issued ones. Use it to meter and bill per user. A key whose owner is disabled returns `{"valid": false}`; re-enabling the user restores it.
 - A key that is unknown, expired, revoked, on a deactivated product, or belongs to a different product returns `{"valid": false}` with no further detail.
 - Products should cache positive results for 30 to 60 seconds.
 
@@ -135,8 +140,9 @@ Products verify user access tokens locally with Keyra's public keys:
 | Manager auth | `POST /api/manager/auth/login`, `/refresh`, `/logout`; `GET /api/manager/me` |
 | Managers | `POST/GET/PATCH/DELETE /api/manager/managers` (admin only) |
 | Users | `PATCH /api/manager/users/{id}` (any manager; enable or disable a user) |
-| Products | `POST/GET/PATCH /api/manager/products`, `PUT /api/manager/products/{id}/managers` |
-| Keys | `POST/GET /api/manager/products/{id}/keys`, `POST .../keys/{keyId}/rotate`, `POST .../keys/{keyId}/revoke` |
+| Products | `POST/GET/PATCH /api/manager/products`, `PUT /api/manager/products/{id}/managers`, `PUT /api/manager/products/{id}/user-keys` (admin or assigned manager) |
+| Keys | `POST/GET /api/manager/products/{id}/keys`, `POST .../keys/{keyId}/rotate`, `POST .../keys/{keyId}/revoke`, `PATCH .../keys/{keyId}`, `POST /api/manager/products/{id}/users/{userId}/keys/revoke` |
+| User keys | `POST/GET /api/products/{slug}/keys`, `POST .../keys/{keyId}/rotate`, `POST .../keys/{keyId}/revoke` (user token) |
 | Validation | `POST /api/v1/keys/validate` |
 | Discovery | `GET /.well-known/jwks.json`, `GET /actuator/health` |
 
@@ -149,10 +155,14 @@ Disabling or deleting an account revokes its refresh tokens immediately, but an 
 - `users(id, email, password_hash, status, created_at)`
 - `managers(id, email, password_hash, role, status, created_at)`
 - `refresh_tokens(id, subject_id, subject_type, token_hash, expires_at, revoked_at)`
-- `products(id, name, slug, description, active, created_at)`
+- `products(id, name, slug, description, active, user_keys_enabled, default_user_scopes, max_keys_per_user, created_at)`
 - `product_managers(product_id, manager_id)`
-- `api_keys(id, product_id, name, prefix, key_hash, previous_key_hash, previous_valid_until, scopes, rate_limit_per_minute, expires_at, status, created_by, created_at, revoked_at, expiry_audited)`
+- `api_keys(id, product_id, name, prefix, key_hash, previous_key_hash, previous_valid_until, scopes, rate_limit_per_minute, expires_at, status, created_by, owner_user_id, created_at, revoked_at, expiry_audited)`
 - `audit_events(id, actor_id, actor_type, action, target_type, target_id, created_at)`
+
+### SaaS deployment
+
+For a company whose end users mint their own keys, keep Keyra private so that only the company backend reaches it, because users choose their own scopes: the company decides who may mint what, and the backend enforces it (for example by checking scopes against the user's subscription tier on validation). Use a `MANAGER` account assigned to the product as the backend's service account for `PATCH` limits and bulk revoke.
 
 ### Non-functional requirements
 
@@ -168,7 +178,8 @@ Disabling or deleting an account revokes its refresh tokens immediately, but an 
 3. **API keys.** Creation, hashing, listing, and the validation endpoint.
 4. **Key lifecycle.** Rotation with grace period, revocation, expiry handling, audit events, rate limit fields.
 5. **Terraform on GCP.** Module on Cloud Run with Cloud SQL or your own Postgres, secrets wiring, and a working end-to-end deployment.
-6. **Terraform on AWS.** Same module interface on ECS Fargate and RDS.
+6. **User-issued keys.** Users mint their own keys on enabled products; `userId` in validation; PATCH limits and bulk revoke for managers.
+7. **Terraform on AWS.** Same module interface on ECS Fargate and RDS.
 
 ### Open questions
 

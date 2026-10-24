@@ -8,6 +8,7 @@ import java.util.UUID;
 
 public record ApiKeyResponse(
         UUID id,
+        UUID ownerUserId,
         String name,
         String prefix,
         List<String> scopes,
@@ -20,6 +21,7 @@ public record ApiKeyResponse(
     public static ApiKeyResponse from(ApiKey key, ApiKeyStatus status) {
         return new ApiKeyResponse(
                 key.getId(),
+                key.getOwnerId(),
                 key.getName(),
                 key.getPrefix(),
                 key.getScopes(),

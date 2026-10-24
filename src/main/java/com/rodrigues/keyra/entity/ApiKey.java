@@ -67,6 +67,11 @@ public class ApiKey {
     @Column(name = "expiry_audited", nullable = false, insertable = false, updatable = false)
     private boolean expiryAudited;
 
+    /** Null for manager-issued keys. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "owner_user_id", updatable = false)
+    private User owner;
+
     @Column(name = "created_by", updatable = false)
     private UUID createdBy;
 
@@ -83,6 +88,7 @@ public class ApiKey {
             List<String> scopes,
             int rateLimitPerMinute,
             Instant expiresAt,
+            User owner,
             UUID createdBy,
             Instant createdAt) {
         this.product = product;
@@ -93,6 +99,7 @@ public class ApiKey {
         this.rateLimitPerMinute = rateLimitPerMinute;
         this.expiresAt = expiresAt;
         this.status = ApiKeyStatus.ACTIVE;
+        this.owner = owner;
         this.createdBy = createdBy;
         this.createdAt = createdAt;
     }
@@ -132,8 +139,21 @@ public class ApiKey {
         previousSecret = null;
     }
 
+    public void updateLimits(List<String> scopes, int rateLimitPerMinute) {
+        this.scopes = scopes;
+        this.rateLimitPerMinute = rateLimitPerMinute;
+    }
+
     public UUID getId() {
         return id;
+    }
+
+    public User getOwner() {
+        return owner;
+    }
+
+    public UUID getOwnerId() {
+        return owner == null ? null : owner.getId();
     }
 
     public Product getProduct() {

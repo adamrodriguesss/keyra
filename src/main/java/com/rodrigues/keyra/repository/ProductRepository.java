@@ -12,5 +12,7 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
 
     List<Product> findAllByManagers_IdOrderByCreatedAtAsc(UUID managerId);
 
+    Optional<Product> findBySlug(String slug);
+
     Optional<Product> findByIdAndManagers_Id(UUID id, UUID managerId);
 }

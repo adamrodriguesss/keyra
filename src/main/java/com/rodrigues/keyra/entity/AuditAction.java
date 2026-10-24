@@ -4,5 +4,6 @@ public enum AuditAction {
     CREATE,
     ROTATE,
     REVOKE,
+    UPDATE,
     EXPIRE
 }
