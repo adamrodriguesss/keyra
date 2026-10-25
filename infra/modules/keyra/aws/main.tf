@@ -24,7 +24,7 @@ locals {
   db_password_secret = coalesce(try(var.external_database.password_secret_id, null), one(aws_secretsmanager_secret.db_password[*].arn))
 
   # One tag pins both this module and the image it runs; the release workflow checks they match.
-  keyra_version = "0.3.1"
+  keyra_version = "0.4.0"
   image         = coalesce(var.image, "ghcr.io/adamrodriguesss/keyra:${local.keyra_version}")
 
   # Known before the tasks exist (the domain, or the distribution, which is created first), so it can be the token issuer.
