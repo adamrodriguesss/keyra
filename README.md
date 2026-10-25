@@ -307,7 +307,7 @@ Secrets never reach Terraform state: the JWT signing key and database password a
 The module (`infra/modules/keyra/gcp`) runs Keyra on Cloud Run with a public `https://<name>-<project-number>.<region>.run.app` URL, which is also the token issuer. By default it runs the published image from GitHub Container Registry, proxied through an Artifact Registry remote repository. You don't clone this repository or install Docker.
 
 1. Prerequisites: Terraform 1.11+ and `gcloud` logged in with rights to create the resources.
-2. Open `docs/configurator.html#gcp` in a browser, fill it in, and save the generated `main.tf` in an empty folder.
+2. Open the [configurator](https://adamrodriguesss.github.io/keyra/configurator.html#gcp), fill it in, and save the generated `main.tf` in an empty folder.
 3. In that folder, run the three commands the page shows:
    ```bash
    gcloud storage buckets create gs://<project>-tfstate --location=<region> --uniform-bucket-level-access --project=<project>   # once per project
@@ -368,7 +368,7 @@ Any provider or self-hosted Postgres works if it meets these requirements:
 - `max_replicas × KEYRA_DB_POOL_SIZE` (default 4 × 10) must fit within the database's `max_connections`; lower `db_pool_size` for small plans.
 - Backups, high availability and upgrades are your responsibility.
 
-The [configurator](docs/configurator.html) has step-by-step setup guides for a self-managed server, Supabase and Neon.
+The [configurator](https://adamrodriguesss.github.io/keyra/configurator.html) has step-by-step setup guides for a self-managed server, Supabase and Neon.
 
 #### Sharing the database server with your own apps
 
@@ -401,7 +401,7 @@ The module (`infra/modules/keyra/aws`) runs Keyra on ECS Fargate behind an Appli
 - **No domain** (leave both unset): CloudFront serves `https://<id>.cloudfront.net` (the `url` output) and reaches an internal load balancer in the private subnets through a VPC origin, over HTTP inside the VPC. The load balancer has no public address and admits only CloudFront's VPC-origin security group. Nothing is cached: the cache policy keys on `Authorization` (CloudFront otherwise drops it from GET requests) with a default TTL of 0, and Keyra sends `no-store`. CloudFront's default certificate also accepts TLS 1.0 and 1.1 from viewers (AWS doesn't let you raise the minimum on `*.cloudfront.net`); the domain mode enforces TLS 1.2+. Expect a few extra milliseconds per request for the CloudFront hop, and 5-15 minutes on the first apply while the distribution deploys. Switching between the two modes changes the issuer URL, so every token already issued stops verifying and users must sign in again: pick one up front.
 
 1. Prerequisites: Terraform 1.11+, AWS credentials with rights to create the resources (`aws configure`, `aws login` or `aws sso login`), and, for the domain mode, a Route 53 hosted zone for the domain.
-2. Open `docs/configurator.html#aws` in a browser, fill it in, and save the generated `main.tf` in an empty folder.
+2. Open the [configurator](https://adamrodriguesss.github.io/keyra/configurator.html#aws), fill it in, and save the generated `main.tf` in an empty folder.
 3. In that folder, run the commands the page shows:
    ```bash
    aws s3api create-bucket --bucket <account>-keyra-tfstate --region <region> --create-bucket-configuration LocationConstraint=<region>   # once per account; omit the last flag in us-east-1
