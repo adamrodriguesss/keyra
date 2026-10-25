@@ -49,6 +49,8 @@ config/application.properties
 .env.*
 !.env.example
 *.pem
+# Public Amazon RDS root CAs the app-database function verifies TLS against.
+!infra/modules/keyra/aws/app_db/rds-ca-bundle.pem
 *.key
 *.p12
 
@@ -70,6 +72,8 @@ crash.log
 crash.*.log
 # Reusable modules don't pin providers; only root modules (infra/examples/*) commit their lock file.
 infra/modules/**/.terraform.lock.hcl
+# Zip of the AWS app-database function, rebuilt on every plan.
+infra/modules/**/.build/
 override.tf
 override.tf.json
 *_override.tf

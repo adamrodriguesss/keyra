@@ -2,7 +2,7 @@
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Keyra GCP Configurator</title>
+<title>Keyra Configurator</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -58,6 +58,14 @@ header.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-cont
 h1 { margin: 0; font: 800 clamp(30px, 5vw, 46px)/1.02 var(--sans); letter-spacing: -0.025em; }
 .lede { margin: 10px 0 0; color: var(--muted); max-width: 64ch; font-size: 16px; }
 .example { margin: 6px 0 0; font-size: 13.5px; color: var(--yours); }
+.clouds { display: inline-flex; gap: 4px; padding: 4px; margin: 0 0 14px; background: var(--sunken); border-radius: 999px; }
+.clouds label { position: relative; cursor: pointer; }
+.clouds input { position: absolute; opacity: 0; pointer-events: none; }
+.clouds span { display: block; padding: 6px 16px; border-radius: 999px; font: 600 14px var(--sans); color: var(--muted); transition: background-color .15s, color .15s; }
+.clouds label:hover span { color: var(--ink); }
+.clouds input:checked + span { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgb(0 0 0 / .14); }
+.clouds input:focus-visible + span { outline: 2.5px solid var(--made); outline-offset: 2px; }
+.stack { display: grid; gap: 14px; min-width: 0; }
 .status { display: flex; align-items: center; gap: 10px; font: 600 14px var(--sans); padding: 9px 14px 9px 12px; border-radius: 999px; border: 1.5px solid currentColor; appearance: none; margin: 0; text-align: left; }
 .status.bad { cursor: pointer; }
 .status.ok { cursor: default; }
@@ -189,7 +197,11 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
 <div class="wrap">
   <header class="top">
     <div>
-      <h1>Keyra on Google Cloud</h1>
+      <div class="clouds" role="radiogroup" aria-label="Cloud">
+        <label><input type="radio" name="cloud" id="cloud_gcp" value="gcp" checked><span>Google Cloud</span></label>
+        <label><input type="radio" name="cloud" id="cloud_aws" value="aws"><span>AWS</span></label>
+      </div>
+      <h1>Keyra on <span data-cloud="gcp">Google Cloud</span><span data-cloud="aws">AWS</span></h1>
       <p class="lede">Pick how your instance should run. You get the steps to prepare your database, a <code>main.tf</code>, and the commands to deploy it. Nothing leaves your browser, and the page never asks for a password.</p>
       <p class="example" id="exampleTag">These are example values. Replace them with yours.</p>
       <button type="button" class="linkish" id="reset" hidden>Start over with the example</button>
@@ -214,12 +226,12 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
       <fieldset>
         <legend>Database</legend>
         <div class="choices" role="radiogroup" aria-label="Database">
-          <label class="choice"><input type="radio" name="db" id="db_cloudsql" value="cloudsql" checked><span><b>Cloud SQL</b><i>Terraform creates a private Postgres with TLS, backups and point-in-time recovery.</i></span></label>
+          <label class="choice"><input type="radio" name="db" id="db_managed" value="managed" checked><span><b data-cloud="gcp">Cloud SQL</b><b data-cloud="aws">RDS</b><i data-cloud="gcp">Terraform creates a private Postgres with TLS, backups and point-in-time recovery.</i><i data-cloud="aws">Terraform creates a private RDS for PostgreSQL with TLS, encrypted storage, backups and point-in-time recovery.</i></span></label>
           <label class="choice"><input type="radio" name="db" id="db_external" value="external"><span><b>My own Postgres</b><i>Any provider or self-hosted. Backups and upgrades stay with you.</i></span></label>
         </div>
 
-        <div id="cloudsqlFields" class="field">
-          <div class="row">
+        <div id="managedFields" class="field">
+          <div class="row" data-cloud="gcp">
             <div class="field" data-for="db_tier">
               <label for="db_tier">Machine size</label>
               <select id="db_tier">
@@ -238,6 +250,34 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
                 <option value="POSTGRES_16">16</option>
                 <option value="POSTGRES_15">15</option>
               </select>
+            </div>
+          </div>
+          <div class="row" data-cloud="aws">
+            <div class="field" data-for="rds_tier">
+              <label for="rds_tier">Instance class</label>
+              <select id="rds_tier">
+                <option value="db.t4g.micro">db.t4g.micro (1 GB, testing only)</option>
+                <option value="db.t4g.small">db.t4g.small (2 GB, testing only)</option>
+                <option value="db.t4g.medium" selected>db.t4g.medium (2 vCPU, 4 GB)</option>
+                <option value="db.t4g.large">db.t4g.large (2 vCPU, 8 GB)</option>
+                <option value="db.m7g.large">db.m7g.large (2 vCPU, 8 GB, no bursting)</option>
+                <option value="db.m7g.xlarge">db.m7g.xlarge (4 vCPU, 16 GB)</option>
+              </select>
+            </div>
+            <div class="field" data-for="postgres_version">
+              <label for="postgres_version">Postgres version</label>
+              <select id="postgres_version">
+                <option value="18" selected>18</option>
+                <option value="17">17</option>
+                <option value="16">16</option>
+                <option value="15">15</option>
+              </select>
+            </div>
+            <div class="field" data-for="backup_days">
+              <label for="backup_days">Days of backups</label>
+              <input type="number" id="backup_days" min="1" max="35" value="7">
+              <span class="hint">1–35. AWS free-plan accounts only allow 1.</span>
+              <div class="err"></div>
             </div>
           </div>
           <div class="field" data-for="app_dbs">
@@ -266,12 +306,18 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
               <input type="text" id="db_username" value="keyra">
               <div class="err"></div>
             </div>
-            <div class="field" data-for="secret_id">
+            <div class="field" data-for="secret_id" data-cloud="gcp">
               <label for="secret_id">Password secret</label>
               <input type="text" id="secret_id" value="keyra-db-password">
               <span class="hint">A Secret Manager secret you create. Name or full path.</span>
               <div class="err"></div>
             </div>
+          </div>
+          <div class="field" data-for="secret_arn" data-cloud="aws">
+            <label for="secret_arn">Password secret ARN</label>
+            <input type="text" id="secret_arn" value="arn:aws:secretsmanager:eu-west-1:123456789012:secret:keyra-db-password-AbCdEf">
+            <span class="hint">A Secrets Manager secret you create; the steps below print its ARN, which ends in a random suffix.</span>
+            <div class="err"></div>
           </div>
         </div>
       </fieldset>
@@ -280,26 +326,69 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
         <legend>How Keyra reaches your database</legend>
         <div class="choices" role="radiogroup" aria-label="Network">
           <label class="choice"><input type="radio" name="net" id="net_public" value="public" checked><span><b>Over the internet</b><i>Your database accepts TLS connections from anywhere.</i></span></label>
-          <label class="choice"><input type="radio" name="net" id="net_static" value="static"><span><b>From a fixed IP</b><i>Your database only accepts listed IPs. Adds Cloud NAT with a reserved address.</i></span></label>
-          <label class="choice"><input type="radio" name="net" id="net_private" value="private"><span><b>Through my private network</b><i>Your database sits in a VPC, behind peering or a VPN.</i></span></label>
+          <label class="choice"><input type="radio" name="net" id="net_static" value="static"><span><b>From a fixed IP</b><i data-cloud="gcp">Your database only accepts listed IPs. Adds Cloud NAT with a reserved address.</i><i data-cloud="aws">Your database only accepts listed IPs. Tasks move behind a NAT gateway with an Elastic IP, billed by the hour.</i></span></label>
+          <label class="choice"><input type="radio" name="net" id="net_private" value="private"><span><b>Through my private network</b><i data-cloud="gcp">Your database sits in a VPC, behind peering or a VPN.</i><i data-cloud="aws">Your database is in a VPC you control. Keyra runs in its subnets instead of creating a VPC.</i></span></label>
         </div>
-        <div id="privateFields" class="row" hidden>
-          <div class="field" data-for="network">
-            <label for="network">VPC network</label>
-            <input type="text" id="network" value="projects/acme-keyra-prod/global/networks/corp">
-            <div class="err"></div>
+        <div id="privateFields" hidden>
+          <div class="row" data-cloud="gcp">
+            <div class="field" data-for="network">
+              <label for="network">VPC network</label>
+              <input type="text" id="network" value="projects/acme-keyra-prod/global/networks/corp">
+              <div class="err"></div>
+            </div>
+            <div class="field" data-for="subnetwork">
+              <label for="subnetwork">Subnetwork for Cloud Run</label>
+              <input type="text" id="subnetwork" value="projects/acme-keyra-prod/regions/europe-west1/subnetworks/keyra-run">
+              <div class="err"></div>
+            </div>
           </div>
-          <div class="field" data-for="subnetwork">
-            <label for="subnetwork">Subnetwork for Cloud Run</label>
-            <input type="text" id="subnetwork" value="projects/acme-keyra-prod/regions/europe-west1/subnetworks/keyra-run">
-            <div class="err"></div>
+          <div class="stack" data-cloud="aws">
+            <div class="field" data-for="vpc_id">
+              <label for="vpc_id">VPC ID</label>
+              <input type="text" id="vpc_id" value="vpc-0a1b2c3d4e5f60000">
+              <div class="err"></div>
+            </div>
+            <div class="field" data-for="task_subnets">
+              <label for="task_subnets">Subnets for the tasks</label>
+              <input type="text" id="task_subnets" value="subnet-0a1b2c3d4e5f60001, subnet-0a1b2c3d4e5f60002">
+              <span class="hint">Comma-separated. They need their own route out, such as a NAT, to pull the image and reach AWS APIs.</span>
+              <div class="err"></div>
+            </div>
+            <div class="field" data-for="alb_subnets">
+              <label for="alb_subnets">Subnets for the load balancer</label>
+              <input type="text" id="alb_subnets" value="subnet-0a1b2c3d4e5f60003, subnet-0a1b2c3d4e5f60004">
+              <span class="hint" id="albHint"></span>
+              <div class="err"></div>
+            </div>
           </div>
         </div>
       </fieldset>
 
+      <fieldset data-cloud="aws">
+        <legend>Public URL</legend>
+        <div class="choices" role="radiogroup" aria-label="Public URL">
+          <label class="choice"><input type="radio" name="url" id="url_domain" value="domain" checked><span><b>My domain</b><i>Recommended. Served on your domain with an ACM certificate validated in your Route 53 zone. Clients need TLS 1.2 or later.</i></span></label>
+          <label class="choice"><input type="radio" name="url" id="url_cloudfront" value="cloudfront"><span><b>A CloudFront address</b><i>No domain needed: served on https://&lt;id&gt;.cloudfront.net. It still accepts TLS 1.0 from clients, and the first apply waits 5–15 minutes for the distribution.</i></span></label>
+        </div>
+        <div id="domainFields" class="row">
+          <div class="field" data-for="domain_name">
+            <label for="domain_name">Domain</label>
+            <input type="text" id="domain_name" value="keyra.acme.example">
+            <div class="err"></div>
+          </div>
+          <div class="field" data-for="zone_id">
+            <label for="zone_id">Route 53 hosted zone ID</label>
+            <input type="text" id="zone_id" value="Z0123456789ABCDEFGHIJ">
+            <span class="hint">The zone that contains the domain.</span>
+            <div class="err"></div>
+          </div>
+        </div>
+        <span class="hint">This URL is also the token issuer, so switching later signs everyone out.</span>
+      </fieldset>
+
       <fieldset>
-        <legend>Project</legend>
-        <div class="row">
+        <legend><span data-cloud="gcp">Project</span><span data-cloud="aws">Account</span></legend>
+        <div class="row" data-cloud="gcp">
           <div class="field" data-for="project_id">
             <label for="project_id">GCP project ID</label>
             <input type="text" id="project_id" value="acme-keyra-prod">
@@ -313,6 +402,24 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
               <option value="northamerica-northeast1"><option value="southamerica-east1">
               <option value="europe-west1"><option value="europe-west2"><option value="europe-west3"><option value="europe-west4">
               <option value="asia-south1"><option value="asia-southeast1"><option value="asia-northeast1"><option value="australia-southeast1">
+            </datalist>
+            <div class="err"></div>
+          </div>
+        </div>
+        <div class="row" data-cloud="aws">
+          <div class="field" data-for="account_id">
+            <label for="account_id">AWS account ID</label>
+            <input type="text" id="account_id" inputmode="numeric" value="123456789012">
+            <span class="hint">12 digits. It names the state bucket, and Terraform refuses to apply to any other account.</span>
+            <div class="err"></div>
+          </div>
+          <div class="field" data-for="aws_region">
+            <label for="aws_region">Region</label>
+            <input type="text" id="aws_region" list="awsRegions" value="eu-west-1">
+            <datalist id="awsRegions">
+              <option value="us-east-1"><option value="us-east-2"><option value="us-west-2"><option value="ca-central-1"><option value="sa-east-1">
+              <option value="eu-west-1"><option value="eu-west-2"><option value="eu-central-1"><option value="eu-north-1">
+              <option value="ap-south-1"><option value="ap-southeast-1"><option value="ap-southeast-2"><option value="ap-northeast-1">
             </datalist>
             <div class="err"></div>
           </div>
@@ -337,12 +444,12 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
         <legend>Capacity</legend>
         <div class="row">
           <div class="field" data-for="replicas">
-            <label for="replicas">Fewest instances</label>
+            <label for="replicas">Fewest <span data-cloud="gcp">instances</span><span data-cloud="aws">tasks</span></label>
             <input type="number" id="replicas" min="1" value="2">
             <div class="err"></div>
           </div>
           <div class="field" data-for="max_replicas">
-            <label for="max_replicas">Most instances</label>
+            <label for="max_replicas">Most <span data-cloud="gcp">instances</span><span data-cloud="aws">tasks</span></label>
             <input type="number" id="max_replicas" min="1" value="4">
             <div class="err"></div>
           </div>
@@ -352,8 +459,8 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
             <div class="err"></div>
           </div>
         </div>
-        <label class="check" for="deletion_protection"><input type="checkbox" id="deletion_protection" checked><span><span class="label">Protect from deletion</span><br><span class="hint">Stops <code>terraform destroy</code> from deleting the database and service. Turn it off only for throwaway instances.</span></span></label>
-        <label class="check" for="metrics_enabled"><input type="checkbox" id="metrics_enabled"><span><span class="label">Export metrics</span><br><span class="hint">Sends metrics to Managed Service for Prometheus through a collector sidecar. Costs more: CPU stays allocated while each instance runs, and the sidecar adds 1 vCPU per instance.</span></span></label>
+        <label class="check" for="deletion_protection"><input type="checkbox" id="deletion_protection" checked><span><span class="label">Protect from deletion</span><br><span class="hint" data-cloud="gcp">Stops <code>terraform destroy</code> from deleting the database and service. Turn it off only for throwaway instances.</span><span class="hint" data-cloud="aws">Stops <code>terraform destroy</code> from deleting the database and load balancer, keeps a final database snapshot, and gives deleted secrets 30 days to recover. Turn it off only for throwaway instances.</span></span></label>
+        <label class="check" for="metrics_enabled"><input type="checkbox" id="metrics_enabled"><span><span class="label">Export metrics</span><br><span class="hint" data-cloud="gcp">Sends metrics to Managed Service for Prometheus through a collector sidecar. Costs more: CPU stays allocated while each instance runs, and the sidecar adds 1 vCPU per instance.</span><span class="hint" data-cloud="aws">Sends metrics to CloudWatch (namespace Keyra) through a collector sidecar. The sidecar shares each task's CPU and memory, so tasks cost the same; CloudWatch bills per custom metric.</span></span></label>
       </fieldset>
 
       <details>
@@ -390,7 +497,7 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
         </li>
         <li class="station">
           <h2>Deploy</h2>
-          <p class="sub">Run these in the folder with main.tf, logged in to <code>gcloud</code>, with Terraform 1.11 or later.</p>
+          <p class="sub" id="deploySub"></p>
           <ol class="steps" id="steps"></ol>
         </li>
         <li class="station end">
@@ -403,65 +510,90 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
   </div>
 
   <footer>
-    The checks on this page copy the ones in <code>infra/modules/keyra/gcp/variables.tf</code>, but Terraform has the final say, so read <code>terraform plan</code> before you apply. Secrets never appear here: Terraform generates the JWT key and Cloud SQL passwords during the apply, and passwords you supply go through the shell or Secret Manager.
+    The checks on this page copy the ones in <code>infra/modules/keyra/<span data-cloud="gcp">gcp</span><span data-cloud="aws">aws</span>/variables.tf</code>, but Terraform has the final say, so read <code>terraform plan</code> before you apply. Secrets never appear here: Terraform generates the JWT key and <span data-cloud="gcp">Cloud SQL</span><span data-cloud="aws">RDS</span> passwords during the apply, and passwords you supply go through the shell or <span data-cloud="gcp">Secret Manager</span><span data-cloud="aws">Secrets Manager</span>.
   </footer>
 </div>
 
 <script>
 (() => {
   const $ = (id) => document.getElementById(id);
-  const KEYRA_VERSION = "0.2.0"; // bump together with local.keyra_version in the module
-  const DEFAULTS = { replicas: 2, max_replicas: 4, db_pool_size: 10, db_tier: "db-custom-1-3840", cloud_sql_version: "POSTGRES_18", deletion_protection: true };
-  const TEXT_IDS = ["project_id", "region", "name", "image", "admin_email", "jdbc_url", "db_username", "secret_id", "network", "subnetwork", "replicas", "max_replicas", "db_pool_size", "db_tier", "cloud_sql_version", "app_dbs"];
+  const KEYRA_VERSION = "0.2.0"; // bump together with local.keyra_version in both modules
+  const DEFAULTS = {
+    replicas: 2, max_replicas: 4, db_pool_size: 10, deletion_protection: true,
+    db_tier: "db-custom-1-3840", cloud_sql_version: "POSTGRES_18",
+    rds_tier: "db.t4g.medium", postgres_version: "18", backup_days: 7,
+  };
+  const TEXT_IDS = ["project_id", "region", "name", "image", "admin_email", "jdbc_url", "db_username", "secret_id", "network", "subnetwork", "replicas", "max_replicas", "db_pool_size", "db_tier", "cloud_sql_version", "app_dbs",
+    "account_id", "aws_region", "domain_name", "zone_id", "rds_tier", "postgres_version", "backup_days", "secret_arn", "vpc_id", "task_subnets", "alb_subnets"];
   const STORE_KEY = "keyra-gcp-configurator";
   const EXAMPLE = {};
   TEXT_IDS.forEach((id) => (EXAMPLE[id] = $(id).value));
+  const check = (id) => { const el = $(id); if (el) el.checked = true; };
 
   // Restore this viewer's last draft, if any. Storage may be unavailable; the example then stays.
   try {
     const saved = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
     if (saved) {
       TEXT_IDS.forEach((id) => { if (typeof saved[id] === "string") $(id).value = saved[id]; });
-      if (saved.db) $("db_" + saved.db).checked = true;
-      if (saved.net) $("net_" + saved.net).checked = true;
-      if (saved.provider) $("prov_" + saved.provider).checked = true;
+      if (saved.cloud) check("cloud_" + saved.cloud);
+      if (saved.db) check("db_" + (saved.db === "cloudsql" ? "managed" : saved.db));
+      if (saved.net) check("net_" + saved.net);
+      if (saved.provider) check("prov_" + saved.provider);
+      if (saved.url) check("url_" + saved.url);
       if (typeof saved.deletion_protection === "boolean") $("deletion_protection").checked = saved.deletion_protection;
       if (typeof saved.metrics_enabled === "boolean") $("metrics_enabled").checked = saved.metrics_enabled;
     }
   } catch (e) { /* ignore */ }
+  // A #aws or #gcp link picks the cloud over the saved draft.
+  if (/^#(aws|gcp)$/.test(location.hash)) check("cloud_" + location.hash.slice(1));
+
+  const list = (s) => s.split(/[\s,]+/).filter(Boolean);
 
   function read() {
     const v = {};
     TEXT_IDS.forEach((id) => (v[id] = $(id).value.trim()));
-    v.db = document.querySelector('input[name="db"]:checked').value;
-    v.net = document.querySelector('input[name="net"]:checked').value;
-    v.provider = document.querySelector('input[name="provider"]:checked').value;
+    for (const name of ["cloud", "db", "net", "provider", "url"]) v[name] = document.querySelector(`input[name="${name}"]:checked`).value;
+    v.aws = v.cloud === "aws";
     v.deletion_protection = $("deletion_protection").checked;
     v.metrics_enabled = $("metrics_enabled").checked;
-    ["replicas", "max_replicas", "db_pool_size"].forEach((k) => (v[k] = v[k] === "" ? NaN : Number(v[k])));
-    v.apps = v.db === "cloudsql" ? v.app_dbs.split(/[\s,]+/).filter(Boolean) : [];
+    ["replicas", "max_replicas", "db_pool_size", "backup_days"].forEach((k) => (v[k] = v[k] === "" ? NaN : Number(v[k])));
+    v.apps = v.db === "managed" ? list(v.app_dbs) : [];
+    v.taskSubnets = list(v.task_subnets);
+    v.albSubnets = list(v.alb_subnets);
+    v.domain = v.aws && v.url === "domain";
     return v;
   }
 
-  // Same rules as variables.tf, so mistakes show up here instead of at plan time.
+  // Same rules as each module's variables.tf, so mistakes show up here instead of at plan time.
   function validate(v) {
     const e = {};
-    if (!/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/.test(v.project_id)) e.project_id = "Use 6–30 lowercase letters, digits or hyphens, starting with a letter.";
-    if (!/^[a-z]+-[a-z]+[0-9]+$/.test(v.region)) e.region = "Use a region ID such as europe-west1.";
+    if (v.aws) {
+      if (!/^\d{12}$/.test(v.account_id)) e.account_id = "Use the 12-digit account ID.";
+      if (!/^[a-z]{2}(-[a-z]+)+-\d+$/.test(v.aws_region)) e.aws_region = "Use a region ID such as eu-west-1.";
+      if (v.domain) {
+        if (!/^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(v.domain_name)) e.domain_name = "Use a host name such as keyra.example.com, in lowercase.";
+        if (!/^Z[A-Z0-9]{5,31}$/.test(v.zone_id)) e.zone_id = "Use the zone ID from Route 53: Z followed by capital letters and digits.";
+      }
+    } else {
+      if (!/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/.test(v.project_id)) e.project_id = "Use 6–30 lowercase letters, digits or hyphens, starting with a letter.";
+      if (!/^[a-z]+-[a-z]+[0-9]+$/.test(v.region)) e.region = "Use a region ID such as europe-west1.";
+    }
     if (!/^[a-z][a-z0-9-]{1,20}[a-z0-9]$/.test(v.name)) e.name = "Use 3–22 lowercase letters, digits and hyphens, starting with a letter.";
     if (v.image && !/^[^\s:]+\/[^\s:]+(\/[^\s:]+)*:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/.test(v.image)) e.image = "Use a full image URL ending in a tag: letters, digits, '.', '_' or '-'.";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.admin_email)) e.admin_email = "Enter the admin's email address.";
     if (!Number.isInteger(v.replicas) || v.replicas < 1) e.replicas = "Use at least 1.";
     if (!Number.isInteger(v.max_replicas) || v.max_replicas < 1) e.max_replicas = "Use at least 1.";
-    else if (Number.isInteger(v.replicas) && v.max_replicas < v.replicas) e.max_replicas = "Can't be lower than the fewest instances.";
+    else if (Number.isInteger(v.replicas) && v.max_replicas < v.replicas) e.max_replicas = "Can't be lower than the fewest " + (v.aws ? "tasks." : "instances.");
     if (!Number.isInteger(v.db_pool_size) || v.db_pool_size < 1) e.db_pool_size = "Use at least 1.";
-    if (v.db === "cloudsql") {
+    if (v.db === "managed") {
+      const prefix = v.aws ? "rds" : "cloudsql";
       const bad = v.apps.find((n) => !/^[a-z][a-z0-9_]{0,62}$/.test(n));
-      const reserved = v.apps.find((n) => n === "keyra" || n === "postgres" || n.startsWith("cloudsql"));
+      const reserved = v.apps.find((n) => n === "keyra" || n === "postgres" || n.startsWith(prefix));
       const dup = v.apps.find((n, i) => v.apps.indexOf(n) !== i);
       if (bad) e.app_dbs = `"${bad}" isn't valid. Use lowercase letters, digits and underscores, starting with a letter.`;
       else if (reserved) e.app_dbs = `"${reserved}" is reserved. Pick another name.`;
       else if (dup) e.app_dbs = `"${dup}" is listed twice.`;
+      if (v.aws && (!Number.isInteger(v.backup_days) || v.backup_days < 1 || v.backup_days > 35)) e.backup_days = "Use 1 to 35.";
     }
     if (v.db === "external") {
       if (!v.jdbc_url.startsWith("jdbc:postgresql://")) e.jdbc_url = "Start it with jdbc:postgresql://";
@@ -469,17 +601,32 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
       else if (/:6543(\/|$)/.test(v.jdbc_url.slice(18))) e.jdbc_url = "Port 6543 is usually a transaction-mode pooler, which breaks migrations. Use the direct or session-mode port.";
       else if (v.provider === "neon" && /^[^/?]*-pooler[.:/?]/.test(v.jdbc_url.slice(18))) e.jdbc_url = "Use the non-pooled endpoint; Neon's pooler is transaction mode and breaks migrations.";
       if (!v.db_username) e.db_username = "Enter the database user.";
-      if (!/^(projects\/[^/]+\/secrets\/)?[A-Za-z0-9_-]{1,255}$/.test(v.secret_id)) e.secret_id = "Use a secret name, or projects/<project>/secrets/<name>.";
-      if (v.net === "private") {
-        if (!/^projects\/[^/]+\/global\/networks\/[^/]+$/.test(v.network)) e.network = "Use the full path: projects/<project>/global/networks/<name>.";
-        if (!/^projects\/[^/]+\/regions\/[^/]+\/subnetworks\/[^/]+$/.test(v.subnetwork)) e.subnetwork = "Use the full path: projects/<project>/regions/<region>/subnetworks/<name>.";
-        else if (v.subnetwork.split("/")[3] !== v.region) e.subnetwork = "The subnetwork must be in " + v.region + ".";
+      if (v.aws) {
+        if (!/^arn:aws[a-z-]*:secretsmanager:[a-z0-9-]+:\d{12}:secret:[A-Za-z0-9/_+=.@-]+$/.test(v.secret_arn)) e.secret_arn = "Use the secret's full ARN: arn:aws:secretsmanager:<region>:<account>:secret:<name>-<suffix>.";
+        if (v.net === "private") {
+          const sub = /^subnet-[0-9a-f]{8}([0-9a-f]{9})?$/;
+          if (!/^vpc-[0-9a-f]{8}([0-9a-f]{9})?$/.test(v.vpc_id)) e.vpc_id = "Use a VPC ID such as vpc-0123456789abcdef0.";
+          const badTask = v.taskSubnets.find((s) => !sub.test(s));
+          if (!v.taskSubnets.length) e.task_subnets = "List at least one subnet.";
+          else if (badTask) e.task_subnets = `"${badTask}" isn't a subnet ID.`;
+          const badAlb = v.albSubnets.find((s) => !sub.test(s));
+          if (badAlb) e.alb_subnets = `"${badAlb}" isn't a subnet ID.`;
+          else if (v.albSubnets.length < 2) e.alb_subnets = "List subnets in at least two availability zones.";
+        }
+      } else {
+        if (!/^(projects\/[^/]+\/secrets\/)?[A-Za-z0-9_-]{1,255}$/.test(v.secret_id)) e.secret_id = "Use a secret name, or projects/<project>/secrets/<name>.";
+        if (v.net === "private") {
+          if (!/^projects\/[^/]+\/global\/networks\/[^/]+$/.test(v.network)) e.network = "Use the full path: projects/<project>/global/networks/<name>.";
+          if (!/^projects\/[^/]+\/regions\/[^/]+\/subnetworks\/[^/]+$/.test(v.subnetwork)) e.subnetwork = "Use the full path: projects/<project>/regions/<region>/subnetworks/<name>.";
+          else if (v.subnetwork.split("/")[3] !== v.region) e.subnetwork = "The subnetwork must be in " + v.region + ".";
+        }
       }
     }
     return e;
   }
 
   const hclStr = (s) => '"' + String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\$\{/g, "$${").replace(/%\{/g, "%%{") + '"';
+  const hclList = (a) => "[" + a.map(hclStr).join(", ") + "]";
   const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
   // Aligned like terraform fmt: consecutive one-line attributes share an "=" column.
@@ -488,20 +635,27 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
     return pairs.map(([k, val]) => `${indent}${k.padEnd(w)} = ${val}`).join("\n");
   }
 
+  const sourceAttr = (cloud) => attrs([["source", hclStr(`git::https://github.com/adamrodriguesss/keyra.git//infra/modules/keyra/${cloud}?ref=v${KEYRA_VERSION}`)]], "  ");
+  const outputs = (outs) => outs.map((o) => `\noutput "${o}" {\n  value = module.keyra.${o}\n}\n`).join("");
+
   function mainTf(v) {
+    return v.aws ? mainTfAws(v) : mainTfGcp(v);
+  }
+
+  function mainTfGcp(v) {
     // name is always written: the module requires it (only the example root defaulted it).
     const top = [["project_id", hclStr(v.project_id)], ["region", hclStr(v.region)], ["name", hclStr(v.name)]];
     top.push(["bootstrap_admin_email", hclStr(v.admin_email)]);
     if (v.image) top.push(["image", hclStr(v.image)]);
     const extra = [];
     for (const k of ["replicas", "max_replicas", "db_pool_size"]) if (v[k] !== DEFAULTS[k]) extra.push([k, String(v[k])]);
-    if (v.db === "cloudsql") {
+    if (v.db === "managed") {
       if (v.db_tier !== DEFAULTS.db_tier) extra.push(["db_tier", hclStr(v.db_tier)]);
       if (v.cloud_sql_version !== DEFAULTS.cloud_sql_version) extra.push(["cloud_sql_version", hclStr(v.cloud_sql_version)]);
     }
     if (!v.deletion_protection) extra.push(["deletion_protection", "false"]);
     if (v.metrics_enabled) extra.push(["metrics_enabled", "true"]);
-    let mod = attrs([["source", hclStr(`git::https://github.com/adamrodriguesss/keyra.git//infra/modules/keyra/gcp?ref=v${KEYRA_VERSION}`)]], "  ") + "\n\n" + attrs(top, "  ");
+    let mod = sourceAttr("gcp") + "\n\n" + attrs(top, "  ");
     if (extra.length) mod += "\n\n" + attrs(extra, "  ");
     if (v.apps.length) mod += "\n\n  app_databases = {\n" + attrs(v.apps.map((n) => [n, "{}"]), "    ") + "\n  }";
     if (v.db === "external") {
@@ -509,9 +663,9 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
       if (v.net === "static") mod += "\n\n  egress = {\n    static_ip = true\n  }";
       if (v.net === "private") mod += "\n\n  egress = {\n" + attrs([["network", hclStr(v.network)], ["subnetwork", hclStr(v.subnetwork)]], "    ") + "\n  }";
     }
-    const outs = [["url"], ["bootstrap_admin_password_secret"]];
-    if (v.db === "external" && v.net === "static") outs.push(["egress_ip"]);
-    if (v.apps.length) outs.push(["app_databases"]);
+    const outs = ["url", "bootstrap_admin_password_secret"];
+    if (v.db === "external" && v.net === "static") outs.push("egress_ip");
+    if (v.apps.length) outs.push("app_databases");
     return `terraform {
   required_version = ">= 1.11"
 
@@ -527,8 +681,53 @@ ${attrs([["project", hclStr(v.project_id)], ["region", hclStr(v.region)]], "  ")
 module "keyra" {
 ${mod}
 }
-` + outs.map(([o]) => `\noutput "${o}" {\n  value = module.keyra.${o}\n}\n`).join("");
+` + outputs(outs);
   }
+
+  function mainTfAws(v) {
+    const top = [["name", hclStr(v.name)], ["region", hclStr(v.aws_region)], ["bootstrap_admin_email", hclStr(v.admin_email)]];
+    if (v.domain) top.push(["domain_name", hclStr(v.domain_name)], ["route53_zone_id", hclStr(v.zone_id)]);
+    if (v.image) top.push(["image", hclStr(v.image)]);
+    const extra = [];
+    for (const k of ["replicas", "max_replicas", "db_pool_size"]) if (v[k] !== DEFAULTS[k]) extra.push([k, String(v[k])]);
+    if (v.db === "managed") {
+      if (v.rds_tier !== DEFAULTS.rds_tier) extra.push(["db_tier", hclStr(v.rds_tier)]);
+      if (v.postgres_version !== DEFAULTS.postgres_version) extra.push(["postgres_version", hclStr(v.postgres_version)]);
+      if (v.backup_days !== DEFAULTS.backup_days) extra.push(["db_backup_retention_days", String(v.backup_days)]);
+    }
+    if (!v.deletion_protection) extra.push(["deletion_protection", "false"]);
+    if (v.metrics_enabled) extra.push(["metrics_enabled", "true"]);
+    let mod = sourceAttr("aws") + "\n\n" + attrs(top, "  ");
+    if (extra.length) mod += "\n\n" + attrs(extra, "  ");
+    if (v.apps.length) mod += "\n\n  app_databases = {\n" + attrs(v.apps.map((n) => [n, "{}"]), "    ") + "\n  }";
+    if (v.db === "external") {
+      mod += "\n\n  external_database = {\n" + attrs([["jdbc_url", hclStr(v.jdbc_url)], ["username", hclStr(v.db_username)], ["password_secret_id", hclStr(v.secret_arn)]], "    ") + "\n  }";
+      if (v.net === "static") mod += "\n\n  egress = {\n    static_ip = true\n  }";
+      if (v.net === "private") mod += "\n\n  egress = {\n" + attrs([["vpc_id", hclStr(v.vpc_id)], ["task_subnet_ids", hclList(v.taskSubnets)], ["alb_subnet_ids", hclList(v.albSubnets)]], "    ") + "\n  }";
+    }
+    const outs = ["url", "bootstrap_admin_password_secret"];
+    if (v.db === "external" && v.net === "static") outs.push("egress_ip");
+    if (v.db === "external" && v.net === "private") outs.push("task_security_group_id");
+    if (v.apps.length) outs.push("app_databases", "vpc_id");
+    return `terraform {
+  required_version = ">= 1.11"
+
+  backend "s3" {
+${attrs([["bucket", hclStr(stateBucket(v))], ["key", hclStr("keyra/terraform.tfstate")], ["region", hclStr(v.aws_region)], ["use_lockfile", "true"]], "    ")}
+  }
+}
+
+provider "aws" {
+${attrs([["region", hclStr(v.aws_region)], ["allowed_account_ids", hclList([v.account_id])]], "  ")}
+}
+
+module "keyra" {
+${mod}
+}
+` + outputs(outs);
+  }
+
+  const stateBucket = (v) => `${v.account_id}-keyra-tfstate`;
 
   function highlightHcl(src) {
     return src.split("\n").map((line) => {
@@ -551,71 +750,120 @@ ${mod}
     return m ? m[1] : "your database";
   }
 
+  // The name part of a Secrets Manager ARN, without the random suffix AWS appends.
+  const arnSecretName = (arn) => (arn.match(/:secret:(.+?)(-[A-Za-z0-9]{6})?$/) || [])[1] || "keyra-db-password";
+
   function stop(title, detail, kind, extra) {
     return `<li class="stop ${kind || ""}"><b>${esc(title)}</b>${detail ? `<small>${esc(detail)}</small>` : ""}${extra || ""}</li>`;
   }
   function hop(label) { return `<li class="hop"><span>${esc(label)}</span></li>`; }
 
+  function appChips(v) {
+    return v.apps.length
+      ? `<div class="apps">${["keyra"].concat(v.apps).map((n) => `<span class="chip">${esc(n)}</span>`).join("")}</div>`
+      : "";
+  }
+
   function topology(v) {
     const label = { supabase: "Supabase", neon: "Neon" }[v.provider] || "Your Postgres";
-    let html = stop("Users and products", "public internet", "ext") + hop("HTTPS")
-      + stop("Cloud Run", `${v.name} · ${v.replicas}–${v.max_replicas} instances`);
-    if (v.db === "cloudsql") {
-      const apps = v.apps.length
-        ? `<div class="apps">${["keyra"].concat(v.apps).map((n) => `<span class="chip">${esc(n)}</span>`).join("")}</div>`
-        : "";
-      html += hop("private VPC") + stop("VPC", `${v.name} · Direct VPC egress`) + hop("private IP, TLS")
-        + stop("Cloud SQL", `${v.cloud_sql_version.replace("POSTGRES_", "Postgres ")} · ${v.db_tier}`, "", apps);
-    } else if (v.net === "public") {
-      html += hop("internet, TLS") + stop(label, dbHost(v.jdbc_url), "yours");
-    } else if (v.net === "static") {
-      html += hop("all traffic") + stop("Cloud NAT", "reserved static IP") + hop("internet, TLS")
-        + stop(label, dbHost(v.jdbc_url) + " · allowlist the IP", "yours");
+    let html = stop("Users and products", "public internet", "ext");
+    if (v.aws) {
+      const ownVpc = !(v.db === "external" && v.net === "private");
+      html += v.domain
+        ? hop("HTTPS") + stop("Load balancer", `${v.domain_name} · ACM certificate`)
+        : hop("HTTPS") + stop("CloudFront", "<id>.cloudfront.net") + hop("VPC origin") + stop("Load balancer", "internal, no public address");
+      html += hop("port 8080") + stop("ECS Fargate", `${v.name} · ${v.replicas}–${v.max_replicas} tasks${ownVpc ? "" : " · " + v.vpc_id}`);
+      if (v.db === "managed") {
+        html += hop("private subnet, TLS") + stop("RDS", `Postgres ${v.postgres_version} · ${v.rds_tier}`, "", appChips(v));
+      } else if (v.net === "public") {
+        html += hop("internet, TLS") + stop(label, dbHost(v.jdbc_url), "yours");
+      } else if (v.net === "static") {
+        html += hop("all traffic") + stop("NAT gateway", "Elastic IP") + hop("internet, TLS")
+          + stop(label, dbHost(v.jdbc_url) + " · allowlist the IP", "yours");
+      } else {
+        html += hop("your VPC, TLS") + stop(label, dbHost(v.jdbc_url) + " · allow the task subnets", "yours");
+      }
     } else {
-      const net = (v.network.split("/").pop()) || "your VPC";
-      html += hop("private ranges") + stop("Your network", `${net} · peering, VPN or Interconnect`, "yours") + hop("TLS")
-        + stop(label, dbHost(v.jdbc_url), "yours");
+      html += hop("HTTPS") + stop("Cloud Run", `${v.name} · ${v.replicas}–${v.max_replicas} instances`);
+      if (v.db === "managed") {
+        html += hop("private VPC") + stop("VPC", `${v.name} · Direct VPC egress`) + hop("private IP, TLS")
+          + stop("Cloud SQL", `${v.cloud_sql_version.replace("POSTGRES_", "Postgres ")} · ${v.db_tier}`, "", appChips(v));
+      } else if (v.net === "public") {
+        html += hop("internet, TLS") + stop(label, dbHost(v.jdbc_url), "yours");
+      } else if (v.net === "static") {
+        html += hop("all traffic") + stop("Cloud NAT", "reserved static IP") + hop("internet, TLS")
+          + stop(label, dbHost(v.jdbc_url) + " · allowlist the IP", "yours");
+      } else {
+        const net = (v.network.split("/").pop()) || "your VPC";
+        html += hop("private ranges") + stop("Your network", `${net} · peering, VPN or Interconnect`, "yours") + hop("TLS")
+          + stop(label, dbHost(v.jdbc_url), "yours");
+      }
     }
     $("topo").innerHTML = html;
     $("topo").style.setProperty("--n", $("topo").querySelectorAll(".stop").length);
-    const dbSecret = v.db === "cloudsql" ? `<span class="chip">${esc(v.name)}-db-password</span>` : `<span class="chip yours">${esc(v.secret_id.split("/").pop())}</span>`;
-    $("secrets").innerHTML = `Cloud Run reads from Secret Manager:
+    const ownSecret = v.aws ? arnSecretName(v.secret_arn) : v.secret_id.split("/").pop();
+    const dbSecret = v.db === "managed" ? `<span class="chip">${esc(v.name)}-db-password</span>` : `<span class="chip yours">${esc(ownSecret)}</span>`;
+    $("secrets").innerHTML = `${v.aws ? "ECS reads from Secrets Manager" : "Cloud Run reads from Secret Manager"}:
       <span class="chip">${esc(v.name)}-jwt-private-key</span>
       <span class="chip">${esc(v.name)}-bootstrap-admin-password</span> (generated)${dbSecret}`;
   }
 
-  // Mirrors the count/for_each conditions in the module.
+  // Connection limits of the testing-only sizes. RDS derives max_connections from memory, so its figures are approximate.
+  const SMALL = { "db-f1-micro": 25, "db-g1-small": 50, "db.t4g.micro": 80, "db.t4g.small": 180 };
+
+  // Mirrors the count/for_each conditions in each module.
   function resources(v) {
-    const cloudsql = v.db === "cloudsql";
+    const managed = v.db === "managed";
     const staticIp = v.db === "external" && v.net === "static";
-    const ownVpc = cloudsql || staticIp;
     const apps = v.apps.length;
-    const secrets = (cloudsql ? 3 : 2) + apps;
-    const rows = [
-      ["Project APIs enabled", 2 + (v.image ? 0 : 1) + (ownVpc ? 1 : 0) + (cloudsql ? 2 : 0)],
-      ["Service account", 1],
-      ["Cloud Run service", 1],
-      ["Secrets and their versions", secrets * 2],
-      ["Secret read grants for Keyra", 3],
-      ["JWT key ID", 1],
-    ];
-    if (!v.image) rows.push(["Image proxy repository (GHCR)", 1]);
-    if (ownVpc) rows.push(["VPC network and subnet", 2]);
-    if (cloudsql) rows.push(["Private service connection", 2], ["Cloud SQL instance, database, user", 3]);
-    if (apps) rows.push([`App databases and users (${apps} ${apps === 1 ? "app" : "apps"})`, apps * 2]);
-    if (staticIp) rows.push(["Static IP, router, NAT", 3]);
+    const rows = [];
+    if (v.aws) {
+      const ownVpc = !(v.db === "external" && v.net === "private");
+      const m = v.metrics_enabled ? 1 : 0;
+      rows.push(
+        ["Secrets and their versions", ((managed ? 3 : 2) + apps) * 2],
+        ["JWT key ID", 1],
+        ["IAM roles and policies", 4 + m],
+        ["ECS cluster, task definition, service", 3],
+        ["Autoscaling target and policies", 3],
+        ["Log groups", 1 + m],
+        ["Load balancer, target group, listeners", v.domain ? 4 : 3],
+        ["Security groups and rules", v.domain ? 7 : 6],
+      );
+      if (ownVpc) rows.push(["VPC, subnets, gateway, routes", 12]);
+      if (staticIp) rows.push(["Elastic IP and NAT gateway", 2]);
+      rows.push(v.domain ? ["Certificate and DNS records", 4] : ["CloudFront distribution, VPC origin, cache policy", 3]);
+      if (managed) rows.push(["RDS instance, subnet and parameter groups, firewall", 5 + (apps ? 1 : 0)]);
+      if (apps) rows.push([`App database function and runs (${apps} ${apps === 1 ? "app" : "apps"})`, 6 + apps], ["Secrets Manager endpoint (about $15/month)", 4]);
+    } else {
+      const ownVpc = managed || staticIp;
+      rows.push(
+        ["Project APIs enabled", 2 + (v.image ? 0 : 1) + (ownVpc ? 1 : 0) + (managed ? 2 : 0)],
+        ["Service account", 1],
+        ["Cloud Run service", 1],
+        ["Secrets and their versions", ((managed ? 3 : 2) + apps) * 2],
+        ["Secret read grants for Keyra", 3],
+        ["JWT key ID", 1],
+      );
+      if (!v.image) rows.push(["Image proxy repository (GHCR)", 1]);
+      if (ownVpc) rows.push(["VPC network and subnet", 2]);
+      if (managed) rows.push(["Private service connection", 2], ["Cloud SQL instance, database, user", 3]);
+      if (apps) rows.push([`App databases and users (${apps} ${apps === 1 ? "app" : "apps"})`, apps * 2]);
+      if (staticIp) rows.push(["Static IP, router, NAT", 3]);
+    }
     const total = rows.reduce((n, [, c]) => n + c, 0);
     $("resources").innerHTML = rows.map(([k, c]) => `<li><span>${esc(k)}</span><span>${c}</span></li>`).join("");
     $("resTotal").textContent = `about ${total} resources`;
 
     const peak = v.max_replicas * v.db_pool_size;
     let tail, warn = false;
-    if (cloudsql) {
-      const small = { "db-f1-micro": 25, "db-g1-small": 50 }[v.db_tier];
+    if (managed) {
+      const tier = v.aws ? v.rds_tier : v.db_tier;
+      const small = SMALL[tier];
       warn = !!(small && peak > small);
       tail = warn
-        ? ` That's more than the ${small} connections ${v.db_tier} allows. Lower the connections each, or pick a bigger machine.`
-        : ` Check that the machine's max_connections covers it${apps ? ", plus what your apps open" : ""}.`;
+        ? ` That's more than the ${v.aws ? "about " : ""}${small} connections ${tier} allows. Lower the connections each, or pick a bigger ${v.aws ? "class" : "machine"}.`
+        : ` Check that the ${v.aws ? "instance" : "machine"}'s max_connections covers it${apps ? ", plus what your apps open" : ""}.`;
     } else {
       tail = " Your database's max_connections must cover it, plus what other apps use.";
     }
@@ -626,25 +874,52 @@ ${mod}
   }
 
   function steps(v) {
-    const p = v.project_id, r = v.region;
     const list = [];
-    list.push(["Create the state bucket", "Holds Terraform state. Versioning lets you recover earlier states.",
-      `gcloud storage buckets create gs://${p}-tfstate --location=${r} \\\n  --uniform-bucket-level-access --project=${p}\ngcloud storage buckets update gs://${p}-tfstate --versioning`]);
-    if (v.db === "external" && v.net === "static") {
-      list.push(["Reserve the IP and allowlist it", "Save main.tf in an empty folder first. Keyra can only start once your database accepts this address.",
-        `terraform init\nterraform apply -target=module.keyra.google_compute_address.egress\nterraform output egress_ip   # add this IP to your database's allowlist`]);
+    if (v.aws) {
+      const r = v.aws_region, b = stateBucket(v);
+      // us-east-1 is the one region that rejects a LocationConstraint.
+      const loc = r === "us-east-1" ? "" : ` \\\n  --create-bucket-configuration LocationConstraint=${r}`;
+      list.push(["Create the state bucket", "Holds Terraform state. Versioning lets you recover earlier states.",
+        `aws s3api create-bucket --bucket ${b} --region ${r}${loc}\naws s3api put-bucket-versioning --bucket ${b} --region ${r} \\\n  --versioning-configuration Status=Enabled`]);
+      if (v.db === "external" && v.net === "static") {
+        list.push(["Reserve the IP and allowlist it", "Save main.tf in an empty folder first. Keyra can only start once your database accepts this address.",
+          `terraform init\nterraform apply -target=module.keyra.aws_eip.egress\nterraform output egress_ip   # add this IP to your database's allowlist`]);
+      }
+      list.push(["Deploy", "Save main.tf in an empty folder, then run this there. Terraform shows the plan and asks before it applies, and finishes once the new tasks are healthy behind the load balancer."
+        + (v.domain ? "" : " The first apply also waits 5–15 minutes while CloudFront deploys."),
+        "terraform init && terraform apply"]);
+    } else {
+      const p = v.project_id, r = v.region;
+      list.push(["Create the state bucket", "Holds Terraform state. Versioning lets you recover earlier states.",
+        `gcloud storage buckets create gs://${p}-tfstate --location=${r} \\\n  --uniform-bucket-level-access --project=${p}\ngcloud storage buckets update gs://${p}-tfstate --versioning`]);
+      if (v.db === "external" && v.net === "static") {
+        list.push(["Reserve the IP and allowlist it", "Save main.tf in an empty folder first. Keyra can only start once your database accepts this address.",
+          `terraform init\nterraform apply -target=module.keyra.google_compute_address.egress\nterraform output egress_ip   # add this IP to your database's allowlist`]);
+      }
+      list.push(["Deploy", "Save main.tf in an empty folder, then run this there. Terraform shows the plan and asks before it applies.",
+        "terraform init && terraform apply"]);
     }
-    list.push(["Deploy", "Save main.tf in an empty folder, then run this there. Terraform shows the plan and asks before it applies.",
-      "terraform init && terraform apply"]);
     renderSteps($("steps"), list, "step");
+
     const fin = [];
-    fin.push(["Sign in as the admin", `Sign in at the url output as ${v.admin_email}. This prints the generated password.`,
-      `gcloud secrets versions access latest --secret=${v.name}-bootstrap-admin-password --project=${p}`]);
-    if (v.apps.length) {
-      const grants = v.apps.map((n) => `gcloud secrets add-iam-policy-binding ${v.name}-${n}-db-password --project=${p} \\\n  --member=serviceAccount:YOUR_APP_SA --role=roles/secretmanager.secretAccessor`).join("\n");
-      const own = v.apps.map((n) => `#   alter database ${n} owner to ${n}; revoke all on database ${n} from public;`).join("\n");
-      fin.push(["Connect your apps", "Each app gets its JDBC URL from the outputs and reads its password from its own secret. It reaches the database through Direct VPC egress into the vpc_network and vpc_subnetwork outputs.",
-        `terraform output -json app_databases\n${grants}\n# Then, connected as each app's user, keep other users out of its database:\n${own}`]);
+    if (v.aws) {
+      const r = v.aws_region;
+      fin.push(["Sign in as the admin", `Sign in at the url output as ${v.admin_email}. This prints the generated password.`,
+        `aws secretsmanager get-secret-value --secret-id ${v.name}-bootstrap-admin-password \\\n  --region ${r} --query SecretString --output text`]);
+      if (v.apps.length) {
+        fin.push(["Connect your apps", "Each app gets its JDBC URL and password secret ARN from the outputs; give its role secretsmanager:GetSecretValue on that secret. Run the app in the vpc_id output's VPC and let its security group into the database's.",
+          `terraform output -json app_databases\nDB_SG=$(aws ec2 describe-security-groups --region ${r} \\\n  --filters Name=group-name,Values=${v.name}-db Name=vpc-id,Values=$(terraform output -raw vpc_id) \\\n  --query 'SecurityGroups[0].GroupId' --output text)\naws ec2 authorize-security-group-ingress --region ${r} --group-id "$DB_SG" \\\n  --protocol tcp --port 5432 --source-group YOUR_APP_SG`]);
+      }
+    } else {
+      const p = v.project_id;
+      fin.push(["Sign in as the admin", `Sign in at the url output as ${v.admin_email}. This prints the generated password.`,
+        `gcloud secrets versions access latest --secret=${v.name}-bootstrap-admin-password --project=${p}`]);
+      if (v.apps.length) {
+        const grants = v.apps.map((n) => `gcloud secrets add-iam-policy-binding ${v.name}-${n}-db-password --project=${p} \\\n  --member=serviceAccount:YOUR_APP_SA --role=roles/secretmanager.secretAccessor`).join("\n");
+        const own = v.apps.map((n) => `#   alter database ${n} owner to ${n}; revoke all on database ${n} from public;`).join("\n");
+        fin.push(["Connect your apps", "Each app gets its JDBC URL from the outputs and reads its password from its own secret. It reaches the database through Direct VPC egress into the vpc_network and vpc_subnetwork outputs.",
+          `terraform output -json app_databases\n${grants}\n# Then, connected as each app's user, keep other users out of its database:\n${own}`]);
+      }
     }
     renderSteps($("finish"), fin, "finish");
   }
@@ -658,67 +933,111 @@ ${mod}
 
   const dbName = (url) => (url.match(/^jdbc:postgresql:\/\/[^/?]+\/([^?]*)/) || [])[1] || "keyra";
 
-  function guide(v) {
-    const p = v.project_id, list = [];
-    const peak = v.max_replicas * v.db_pool_size;
-    const peakTxt = Number.isFinite(peak) ? `${v.max_replicas} × ${v.db_pool_size} = ${peak}` : "max instances × connections each";
-    if (v.db === "cloudsql") {
-      $("guideSub").textContent = "Terraform builds the database. This is what you get and how to look after it.";
-      const small = { "db-f1-micro": 25, "db-g1-small": 50 }[v.db_tier];
+  function managedGuide(v, list, peakTxt) {
+    const restored = v.apps.length ? `, including ${v.apps.join(", ")}` : "";
+    if (v.aws) {
+      const n = v.name, r = v.aws_region, small = SMALL[v.rds_tier];
+      list.push(["Pick a size", `Keyra opens up to ${peakTxt} connections at full scale${v.apps.length ? ", plus what your apps open" : ""}. ${small ? `${v.rds_tier} allows about ${small}; it is for testing only.` : "RDS sets max_connections from the instance's memory; compare the two."} The size is the Instance class field.`]);
+      list.push(["What you get", `Private subnets only, no public address. TLS is required and storage is encrypted. Backups are kept ${v.backup_days} ${v.backup_days === 1 ? "day" : "days"}, with point-in-time recovery over that window. Keyra connects as the master user keyra, which owns the keyra database. Deletion protection is ${v.deletion_protection ? "on, and deleting the instance keeps a final snapshot" : "off"}.`]);
+      list.push(["See the backups", "The instance has no public address, so run queries from inside its VPC. This lists the snapshots and the latest time you can restore to:",
+        `aws rds describe-db-snapshots --db-instance-identifier ${n} --region ${r} \\\n  --query 'DBSnapshots[].[DBSnapshotIdentifier,SnapshotCreateTime]' --output table\naws rds describe-db-instances --db-instance-identifier ${n} --region ${r} \\\n  --query 'DBInstances[0].LatestRestorableTime' --output text`]);
+      list.push(["Restore a backup", `RDS restores into a new instance beside the old one, and every database on it${restored} rolls back to RESTORE_TIME (UTC, such as 2026-01-31T09:00:00Z). Add --vpc-security-group-ids with the ${n}-db group's ID so Keyra's tasks can reach it, then copy the data back with pg_dump and pg_restore.`,
+        `aws rds restore-db-instance-to-point-in-time --region ${r} \\\n  --source-db-instance-identifier ${n} --target-db-instance-identifier ${n}-restore \\\n  --restore-time RESTORE_TIME --db-subnet-group-name ${n} --db-parameter-group-name ${n}`]);
+    } else {
+      const p = v.project_id, small = SMALL[v.db_tier];
       list.push(["Pick a size", `Keyra opens up to ${peakTxt} connections at full scale${v.apps.length ? ", plus what your apps open" : ""}. ${small ? `${v.db_tier} allows ${small}; it is for testing only.` : "Compare that with the machine's max_connections."} The size is the Machine size field.`]);
       list.push(["What you get", `Private IP only, no public address. TLS is enforced. Daily backups and point-in-time recovery are on. Deletion protection is ${v.deletion_protection ? "on" : "off"}.`]);
       list.push(["Look at the data", "Use Cloud SQL Studio: open the instance in the console and choose Cloud SQL Studio. To see the backups:",
         `gcloud sql backups list --instance=${v.name} --project=${p}`]);
-      list.push(["Restore a backup", `Restoring rolls back every database on the instance${v.apps.length ? `, including ${v.apps.join(", ")}` : ""}. Take BACKUP_ID from the list above.`,
+      list.push(["Restore a backup", `Restoring rolls back every database on the instance${restored}. Take BACKUP_ID from the list above.`,
         `gcloud sql backups restore BACKUP_ID --restore-instance=${v.name} --project=${p}`]);
+    }
+  }
+
+  function guide(v) {
+    const list = [];
+    const peak = v.max_replicas * v.db_pool_size;
+    const peakTxt = Number.isFinite(peak) ? `${v.max_replicas} × ${v.db_pool_size} = ${peak}` : `max ${v.aws ? "tasks" : "instances"} × connections each`;
+    if (v.db === "managed") {
+      $("guideSub").textContent = "Terraform builds the database. This is what you get and how to look after it.";
+      managedGuide(v, list, peakTxt);
+      renderSteps($("guide"), list, "guide");
+      return;
+    }
+    const db = dbName(v.jdbc_url), u = v.db_username, host = dbHost(v.jdbc_url);
+    const mk = (role, dbn) => `read -rs PW\npsql -h ${host.replace(/:\d+$/, "")} -U postgres -v pw="$PW" <<'SQL'\ncreate role ${role} login password :'pw';\ncreate database ${dbn} owner ${role};\nrevoke all on database ${dbn} from public;\nSQL\nunset PW`;
+    const budget = ["Connection budget", `Keyra opens up to ${peakTxt} connections at full scale. Your database's limit must cover that, plus what other apps use.`];
+    if (v.provider === "supabase") {
+      $("guideSub").textContent = "Steps for Supabase, with your values filled in.";
+      list.push(["Copy the session pooler string", `In your project choose Connect, then Session pooler. Make it a JDBC URL on port 5432 with sslmode=require: jdbc:postgresql://aws-0-REGION.pooler.supabase.com:5432/postgres?sslmode=require. The user is postgres.PROJECT_REF. The direct db.PROJECT_REF.supabase.co host is IPv6 only and ${v.aws ? "Keyra's" : "Cloud Run"} egress is IPv4. Port 6543 is transaction mode and breaks migrations.`]);
+      list.push(["Optional: a dedicated role", "In the SQL editor, run this, then end the URL with /keyra and set the user to keyra.PROJECT_REF. Pick the password in the editor; the page never sees it.",
+        "create role keyra login password 'CHOOSE_A_PASSWORD';\ngrant keyra to postgres;\ncreate database keyra owner keyra;\nrevoke all on database keyra from public;"]);
+      list.push(["Network restrictions", "If you turned them on, choose From a fixed IP above and allow the egress_ip address in Supabase's network restrictions."]);
+      list.push(["Connection budget", `Keyra opens up to ${peakTxt} connections at full scale. Check that your plan's pooler client limit covers it, plus other apps.`]);
+    } else if (v.provider === "neon") {
+      $("guideSub").textContent = "Steps for Neon, with your values filled in.";
+      list.push(["Use the direct connection string", "Copy it from the dashboard with pooling off, so the host has no -pooler. As a JDBC URL: jdbc:postgresql://ENDPOINT.REGION.aws.neon.tech/DATABASE?sslmode=require."]);
+      list.push(["Create a role and database", "In the Neon console create a role and a database owned by it, then put them in the URL and the Username field."]);
+      list.push(["IP allow", "On paid plans, if you restrict IPs, choose From a fixed IP above and allow the egress_ip address."]);
+      list.push(["Scale to zero", "A suspended compute adds cold-start latency to the first query. Turn scale to zero off for production."]);
+      list.push(budget);
     } else {
-      const db = dbName(v.jdbc_url), u = v.db_username, host = dbHost(v.jdbc_url);
-      const m = v.secret_id.match(/^projects\/([^/]+)\/secrets\/(.+)$/);
-      const sp = m ? m[1] : p, sn = m ? m[2] : v.secret_id;
-      const mk = (role, dbn) => `read -rs PW\npsql -h ${host.replace(/:\d+$/, "")} -U postgres -v pw="$PW" <<'SQL'\ncreate role ${role} login password :'pw';\ncreate database ${dbn} owner ${role};\nrevoke all on database ${dbn} from public;\nSQL\nunset PW`;
-      const budget = ["Connection budget", `Keyra opens up to ${peakTxt} connections at full scale. Your database's limit must cover that, plus what other apps use.`];
-      if (v.provider === "supabase") {
-        $("guideSub").textContent = "Steps for Supabase, with your values filled in.";
-        list.push(["Copy the session pooler string", "In your project choose Connect, then Session pooler. Make it a JDBC URL on port 5432 with sslmode=require: jdbc:postgresql://aws-0-REGION.pooler.supabase.com:5432/postgres?sslmode=require. The user is postgres.PROJECT_REF. The direct db.PROJECT_REF.supabase.co host is IPv6 only and Cloud Run egress is IPv4. Port 6543 is transaction mode and breaks migrations."]);
-        list.push(["Optional: a dedicated role", "In the SQL editor, run this, then end the URL with /keyra and set the user to keyra.PROJECT_REF. Pick the password in the editor; the page never sees it.",
-          "create role keyra login password 'CHOOSE_A_PASSWORD';\ngrant keyra to postgres;\ncreate database keyra owner keyra;\nrevoke all on database keyra from public;"]);
-        list.push(["Network restrictions", "If you turned them on, choose From a fixed IP above and allow the egress_ip address in Supabase's network restrictions."]);
-        list.push(["Connection budget", `Keyra opens up to ${peakTxt} connections at full scale. Check that your plan's pooler client limit covers it, plus other apps.`]);
-      } else if (v.provider === "neon") {
-        $("guideSub").textContent = "Steps for Neon, with your values filled in.";
-        list.push(["Use the direct connection string", "Copy it from the dashboard with pooling off, so the host has no -pooler. As a JDBC URL: jdbc:postgresql://ENDPOINT.REGION.aws.neon.tech/DATABASE?sslmode=require."]);
-        list.push(["Create a role and database", "In the Neon console create a role and a database owned by it, then put them in the URL and the Username field."]);
-        list.push(["IP allow", "On paid plans, if you restrict IPs, choose From a fixed IP above and allow the egress_ip address."]);
-        list.push(["Scale to zero", "A suspended compute adds cold-start latency to the first query. Turn scale to zero off for production."]);
-        list.push(budget);
-      } else {
-        $("guideSub").textContent = "Steps for a Postgres server you run, with your values filled in.";
-        list.push(["Postgres 15+ with TLS", "Set this in postgresql.conf and restart. Use sslmode=verify-full only if the certificate matches the host name in your URL.",
-          `listen_addresses = '*'\nssl = on\nssl_cert_file = 'server.crt'\nssl_key_file = 'server.key'`]);
-        list.push(["Create Keyra's user and database", "Run this as a superuser. The password comes from your shell, not from this page.", mk(u, db)]);
-        const src = { public: "0.0.0.0/0", static: "EGRESS_IP/32", private: "SUBNET_RANGE" }[v.net];
+      $("guideSub").textContent = "Steps for a Postgres server you run, with your values filled in.";
+      list.push(["Postgres 15+ with TLS", "Set this in postgresql.conf and restart. Use sslmode=verify-full only if the certificate matches the host name in your URL.",
+        `listen_addresses = '*'\nssl = on\nssl_cert_file = 'server.crt'\nssl_key_file = 'server.key'`]);
+      list.push(["Create Keyra's user and database", "Run this as a superuser. The password comes from your shell, not from this page.", mk(u, db)]);
+      const src = { public: "0.0.0.0/0", static: "EGRESS_IP/32", private: "SUBNET_RANGE" }[v.net];
+      const hba = `# pg_hba.conf, then: select pg_reload_conf();\nhostssl ${db} ${u} ${src} scram-sha-256`;
+      const hbaNote = { public: "Open to every address. The fixed-IP option above lets you narrow it to one.",
+        static: "Replace EGRESS_IP with the address from the reserve-IP deploy step below.",
+        private: v.aws
+          ? "Add a line for each task subnet's range, and allow the same ranges on port 5432 in your database's security group or firewall. The ranges:"
+          : "Replace SUBNET_RANGE with the range of the Cloud Run subnetwork:" }[v.net];
+      let lookup = "";
+      if (v.net === "private" && v.aws) {
+        lookup = `\n\naws ec2 describe-subnets --region ${v.aws_region} --subnet-ids ${v.taskSubnets.join(" ") || "SUBNET_ID"} \\\n  --query 'Subnets[].CidrBlock' --output text`;
+      } else if (v.net === "private") {
         const sub = v.subnetwork.split("/");
-        const hba = `# pg_hba.conf, then: select pg_reload_conf();\nhostssl ${db} ${u} ${src} scram-sha-256`;
-        const hbaNote = { public: "Open to every address. The fixed-IP option above lets you narrow it to one.",
-          static: "Replace EGRESS_IP with the address from the reserve-IP deploy step below.",
-          private: "Replace SUBNET_RANGE with the range of the Cloud Run subnetwork:" }[v.net];
-        list.push(["Let Keyra in", hbaNote, hba + (v.net === "private" ? `\n\ngcloud compute networks subnets describe ${sub[5] || "SUBNETWORK"} \\\n  --region=${sub[3] || v.region} --project=${sub[1] || p} --format='value(ipCidrRange)'` : "")]);
-        list.push(["Connection budget", `Keyra opens up to ${peakTxt} connections at full scale. Compare with:`, "show max_connections;"]);
-        list.push(["Backups are yours", "Set up pg_dump or your own backup tool, and test a restore."]);
+        lookup = `\n\ngcloud compute networks subnets describe ${sub[5] || "SUBNETWORK"} \\\n  --region=${sub[3] || v.region} --project=${sub[1] || v.project_id} --format='value(ipCidrRange)'`;
       }
+      list.push(["Let Keyra in", hbaNote, hba + lookup]);
+      list.push(["Connection budget", `Keyra opens up to ${peakTxt} connections at full scale. Compare with:`, "show max_connections;"]);
+      list.push(["Backups are yours", "Set up pg_dump or your own backup tool, and test a restore."]);
+    }
+    if (v.aws) {
+      list.push(["Store the database password", "Only Secrets Manager sees it; Terraform and this page never do. Paste the ARN this prints into the Password secret ARN field.",
+        `read -rs DB_PASSWORD\nprintf '%s' "$DB_PASSWORD" | aws secretsmanager create-secret --name ${arnSecretName(v.secret_arn)} \\\n  --secret-string file:///dev/stdin --region ${v.aws_region} --query ARN --output text\nunset DB_PASSWORD`]);
+    } else {
+      const m = v.secret_id.match(/^projects\/([^/]+)\/secrets\/(.+)$/);
+      const sp = m ? m[1] : v.project_id, sn = m ? m[2] : v.secret_id;
       list.push(["Store the database password", "Only Secret Manager sees it. Terraform and this page never do.",
         `read -rs DB_PASSWORD\nprintf '%s' "$DB_PASSWORD" | gcloud secrets create ${sn} \\\n  --data-file=- --project=${sp}\nunset DB_PASSWORD`]);
     }
     renderSteps($("guide"), list, "guide");
   }
 
+  let lastCloud = null;
+
   function render() {
     const v = read();
     const external = v.db === "external";
-    $("cloudsqlFields").hidden = external;
+    document.querySelectorAll("[data-cloud]").forEach((el) => (el.hidden = el.dataset.cloud !== v.cloud));
+    $("managedFields").hidden = external;
     $("externalFields").hidden = !external;
     $("networkSet").hidden = !external;
     $("privateFields").hidden = !(external && v.net === "private");
+    $("domainFields").hidden = !v.domain;
+    $("albHint").textContent = v.url === "domain"
+      ? "Comma-separated, in two or more availability zones. Public subnets: the load balancer faces the internet."
+      : "Comma-separated, in two or more availability zones. Private subnets (no internet gateway route) in a VPC that has an internet gateway, for CloudFront's VPC origin.";
+    $("image").placeholder = v.aws ? "123456789012.dkr.ecr.eu-west-1.amazonaws.com/keyra:1.0.0" : "europe-west1-docker.pkg.dev/acme/keyra/keyra:1.0.0";
+    $("deploySub").innerHTML = v.aws
+      ? "Run these in the folder with main.tf, with AWS credentials loaded (<code>aws configure</code>, <code>aws login</code> or <code>aws sso login</code>) and Terraform 1.11 or later."
+      : "Run these in the folder with main.tf, logged in to <code>gcloud</code>, with Terraform 1.11 or later.";
+    if (v.cloud !== lastCloud) {
+      lastCloud = v.cloud;
+      try { history.replaceState(null, "", "#" + v.cloud); } catch (e) { /* ignore */ }
+    }
 
     const errors = validate(v);
     document.querySelectorAll(".field[data-for]").forEach((f) => {
@@ -738,7 +1057,7 @@ ${mod}
 
     const same = TEXT_IDS.every((id) => $(id).value === EXAMPLE[id]);
     $("exampleTag").hidden = !same;
-    $("reset").hidden = same && v.db === "cloudsql" && v.net === "public" && v.provider === "self" && v.deletion_protection && !v.metrics_enabled;
+    $("reset").hidden = same && v.db === "managed" && v.net === "public" && v.provider === "self" && v.url === "domain" && v.deletion_protection && !v.metrics_enabled;
 
     topology(v);
     resources(v);
@@ -750,7 +1069,7 @@ ${mod}
       neon: "Use the <b>non-pooled</b> endpoint: the host without <code>-pooler</code>. Neon's pooler is transaction mode.",
     }[v.provider] || "Needs <code>sslmode=require</code>, <code>verify-ca</code> or <code>verify-full</code>. Connect directly or through a session-mode pooler, not a transaction-mode one.";
 
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(Object.assign({}, Object.fromEntries(TEXT_IDS.map((id) => [id, $(id).value])), { db: v.db, net: v.net, provider: v.provider, deletion_protection: v.deletion_protection, metrics_enabled: v.metrics_enabled }))); } catch (e) { /* ignore */ }
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(Object.assign({}, Object.fromEntries(TEXT_IDS.map((id) => [id, $(id).value])), { cloud: v.cloud, db: v.db, net: v.net, provider: v.provider, url: v.url, deletion_protection: v.deletion_protection, metrics_enabled: v.metrics_enabled }))); } catch (e) { /* ignore */ }
   }
 
   document.addEventListener("click", async (ev) => {
@@ -791,10 +1110,11 @@ ${mod}
   $("reset").addEventListener("click", () => {
     try { localStorage.removeItem(STORE_KEY); } catch (e) { /* ignore */ }
     TEXT_IDS.forEach((id) => ($(id).value = EXAMPLE[id]));
-    ["db_cloudsql", "net_public", "prov_self", "deletion_protection"].forEach((id) => ($(id).checked = true));
+    ["db_managed", "net_public", "prov_self", "url_domain", "deletion_protection"].forEach((id) => ($(id).checked = true));
     $("metrics_enabled").checked = false;
     render();
   });
+  document.querySelectorAll('input[name="cloud"]').forEach((el) => el.addEventListener("change", render));
   $("cfg").addEventListener("input", render);
   $("cfg").addEventListener("change", render);
   $("cfg").addEventListener("submit", (e) => e.preventDefault());

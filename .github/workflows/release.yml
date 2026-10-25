@@ -14,10 +14,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4.2.2
 
-      - name: Tag must match the module version
+      - name: Tag must match the module versions
         run: |
-          v=$(sed -n 's/^ *keyra_version *= *"\(.*\)"/\1/p' infra/modules/keyra/gcp/main.tf)
-          [ -n "$v" ] && [ "$GITHUB_REF_NAME" = "v$v" ] || { echo "tag $GITHUB_REF_NAME does not match keyra_version '$v'"; exit 1; }
+          for m in gcp aws; do
+            v=$(sed -n 's/^ *keyra_version *= *"\(.*\)"/\1/p' infra/modules/keyra/$m/main.tf)
+            [ -n "$v" ] && [ "$GITHUB_REF_NAME" = "v$v" ] || { echo "tag $GITHUB_REF_NAME does not match keyra_version '$v' in the $m module"; exit 1; }
+          done
           echo "VERSION=$v" >> "$GITHUB_ENV"
 
       - uses: docker/login-action@v3.3.0

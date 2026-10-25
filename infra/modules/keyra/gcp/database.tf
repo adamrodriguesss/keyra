@@ -64,7 +64,7 @@ resource "google_sql_database" "keyra" {
   deletion_policy = "ABANDON"
 }
 
-# Generated per run and never stored; written only when db_password_version changes.
+# Generated per run and never stored. The user and its secret must get it in the same run: see the secret versions.
 ephemeral "random_password" "db" {
   count = local.create_db ? 1 : 0
 

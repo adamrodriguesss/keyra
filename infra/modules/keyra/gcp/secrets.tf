@@ -67,6 +67,14 @@ resource "google_secret_manager_secret_version" "db_password" {
   secret                 = google_secret_manager_secret.db_password[0].id
   secret_data_wo         = ephemeral.random_password.db[0].result
   secret_data_wo_version = var.db_password_version
+
+  # The password is generated anew each run, so the secret must be written in the run that sets it on the user:
+  # only after the user exists (a failed create writes neither), and again whenever the user is replaced.
+  depends_on = [google_sql_user.keyra]
+
+  lifecycle {
+    replace_triggered_by = [google_sql_user.keyra[count.index].id]
+  }
 }
 
 # Your apps' passwords: Keyra never reads these, so they are not in the Cloud Run grants below.
@@ -87,6 +95,13 @@ resource "google_secret_manager_secret_version" "app_db_password" {
   secret                 = google_secret_manager_secret.app_db_password[each.key].id
   secret_data_wo         = ephemeral.random_password.app[each.key].result
   secret_data_wo_version = each.value.password_version
+
+  # Written in the same run as the user's password, as with Keyra's own above.
+  depends_on = [google_sql_user.app]
+
+  lifecycle {
+    replace_triggered_by = [google_sql_user.app[each.key].id]
+  }
 }
 
 # Read access to exactly these secrets, including an external database's existing one.

@@ -1,0 +1,46 @@
+# Copy to terraform.tfvars (gitignored). The admin password is generated; read it from the
+# bootstrap_admin_password_secret output.
+
+region                = "eu-west-1"
+bootstrap_admin_email = "admin@example.com"
+
+# Your domain, in a Route 53 hosted zone (recommended). Leave both unset to serve on CloudFront's
+# https://<id>.cloudfront.net URL instead (read it from the url output).
+# domain_name     = "keyra.example.com"
+# route53_zone_id = "Z0123456789ABCDEFGHIJ"
+
+# Custom build only; unset runs the published release.
+# image = "123456789012.dkr.ecr.eu-west-1.amazonaws.com/keyra:0.0.1"
+
+# --- Database: pick one -------------------------------------------------------
+# 1. RDS (default): leave external_database unset.
+#
+# 2. Your own Postgres, reachable over the internet. Create the password secret first and use its ARN:
+#      printf '%s' "$DB_PASSWORD" | aws secretsmanager create-secret --name keyra-db-password --secret-string file:///dev/stdin
+# external_database = {
+#   jdbc_url           = "jdbc:postgresql://db.example.com:5432/keyra?sslmode=verify-full"
+#   username           = "keyra"
+#   password_secret_id = "arn:aws:secretsmanager:eu-west-1:123456789012:secret:keyra-db-password-AbCdEf"
+# }
+#
+# 3. Same, but the database only accepts allowlisted IPs: add the static egress IP
+#    (allowlist the egress_ip output).
+# egress = { static_ip = true }
+#
+# 4. Same, but the database is in a VPC you control: deploy into it. Task subnets need a route out (NAT);
+#    load balancer subnets span two or more AZs: public with domain_name, private without it.
+# egress = {
+#   vpc_id          = "vpc-0123456789abcdef0"
+#   task_subnet_ids = ["subnet-0aaa", "subnet-0bbb"]
+#   alb_subnet_ids  = ["subnet-0ccc", "subnet-0ddd"]
+# }
+
+# --- Your own apps' databases on the RDS instance (RDS only, addable any time) ---
+# app_databases = {
+#   billing = {}
+#   crm     = { password_version = 1 } # bump to rotate the password
+# }
+
+# --- Rotation: bump to generate a new value; tasks roll over to it ---
+# jwt_key_version     = 2 # access tokens signed with the old key stop verifying (they live 15 minutes)
+# db_password_version = 2 # RDS only

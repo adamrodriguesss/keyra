@@ -4,7 +4,7 @@ Keyra is a self-hosted identity and API key service for companies that run more 
 
 A company deploys its own Keyra instance with Terraform, on AWS or GCP, backed by its own Postgres database. No data is shared between companies.
 
-> **Status:** early development. Milestones 1 (manager and user login), 2 (products and managers), 3 (API keys) and 4 (key lifecycle), 5 (Terraform on GCP) and 6 (user-issued keys) are done; 7 (Terraform on AWS) is next. This document is the specification the implementation follows.
+> **Status:** early development. Milestones 1 (manager and user login), 2 (products and managers), 3 (API keys), 4 (key lifecycle), 5 (Terraform on GCP), 6 (user-issued keys) and 7 (Terraform on AWS) are done. This document is the specification the implementation follows.
 
 ---
 
@@ -238,7 +238,8 @@ com.rodrigues.keyra
 src/main/resources/db/migration/   Flyway migrations, V<n>__<description>.sql
 Dockerfile                          Container image (configured only by KEYRA_* env vars)
 infra/modules/keyra/gcp/            Terraform module for GCP (tests/ runs offline with terraform test)
-infra/examples/gcp/                 Root module that deploys one instance
+infra/modules/keyra/aws/            Terraform module for AWS (same; app_db/ is the app-database function)
+infra/examples/gcp/, infra/examples/aws/   Root modules that deploy one instance
 ```
 
 ---
@@ -305,7 +306,7 @@ Secrets never reach Terraform state: the JWT signing key and database password a
 The module (`infra/modules/keyra/gcp`) runs Keyra on Cloud Run with a public `https://<name>-<project-number>.<region>.run.app` URL, which is also the token issuer. By default it runs the published image from GitHub Container Registry, proxied through an Artifact Registry remote repository. You don't clone this repository or install Docker.
 
 1. Prerequisites: Terraform 1.11+ and `gcloud` logged in with rights to create the resources.
-2. Open `docs/configurator.html` in a browser, fill it in, and save the generated `main.tf` in an empty folder.
+2. Open `docs/configurator.html#gcp` in a browser, fill it in, and save the generated `main.tf` in an empty folder.
 3. In that folder, run the three commands the page shows:
    ```bash
    gcloud storage buckets create gs://<project>-tfstate --location=<region> --uniform-bucket-level-access --project=<project>   # once per project
@@ -329,7 +330,7 @@ docker push <region>-docker.pkg.dev/<project>/keyra/keyra:<version>
 
 #### Releasing
 
-Bump `local.keyra_version` in `infra/modules/keyra/gcp/main.tf` and `KEYRA_VERSION` in `docs/configurator.html`, then push the tag `v<version>`. The release workflow checks the tag against `keyra_version` and publishes `ghcr.io/adamrodriguesss/keyra:<version>` and `:latest`. After the first release, make the `keyra` GHCR package public so deployments can pull it anonymously.
+Bump `local.keyra_version` in `infra/modules/keyra/gcp/main.tf` and `infra/modules/keyra/aws/main.tf`, and `KEYRA_VERSION` in `docs/configurator.html`, then push the tag `v<version>`. The release workflow checks the tag against both modules' `keyra_version` and publishes `ghcr.io/adamrodriguesss/keyra:<version>` and `:latest`. After the first release, make the `keyra` GHCR package public so deployments can pull it anonymously.
 
 Cloud SQL and the Cloud Run service have deletion protection on by default (`deletion_protection = false` to tear an instance down). Bump `jwt_key_version` or `db_password_version` to rotate those secrets.
 
@@ -390,6 +391,62 @@ What to watch (OTLP names; Prometheus spells them with underscores and unit or `
 - `jvm.*` and `process.*`: memory, garbage collection, threads and CPU.
 
 Outside Terraform, set `KEYRA_METRICS_ENABLED=true` and point `KEYRA_METRICS_OTLP_URL` at any OTLP/HTTP collector.
+
+### Deploy to AWS
+
+The module (`infra/modules/keyra/aws`) runs Keyra on ECS Fargate behind an Application Load Balancer. By default it pulls the published image straight from GitHub Container Registry. The public URL, which is also the token issuer, comes one of two ways:
+
+- **Your domain** (`domain_name` + `route53_zone_id`, recommended): `https://<domain_name>`. The module issues an ACM certificate, validates it in your Route 53 zone and points the domain at a public load balancer. Plain HTTP redirects to HTTPS.
+- **No domain** (leave both unset): CloudFront serves `https://<id>.cloudfront.net` (the `url` output) and reaches an internal load balancer in the private subnets through a VPC origin, over HTTP inside the VPC. The load balancer has no public address and admits only CloudFront's VPC-origin security group. Nothing is cached: the cache policy keys on `Authorization` (CloudFront otherwise drops it from GET requests) with a default TTL of 0, and Keyra sends `no-store`. CloudFront's default certificate also accepts TLS 1.0 and 1.1 from viewers (AWS doesn't let you raise the minimum on `*.cloudfront.net`); the domain mode enforces TLS 1.2+. Expect a few extra milliseconds per request for the CloudFront hop, and 5-15 minutes on the first apply while the distribution deploys. Switching between the two modes changes the issuer URL, so every token already issued stops verifying and users must sign in again: pick one up front.
+
+1. Prerequisites: Terraform 1.11+, AWS credentials with rights to create the resources (`aws configure`, `aws login` or `aws sso login`), and, for the domain mode, a Route 53 hosted zone for the domain.
+2. Open `docs/configurator.html#aws` in a browser, fill it in, and save the generated `main.tf` in an empty folder.
+3. In that folder, run the commands the page shows:
+   ```bash
+   aws s3api create-bucket --bucket <account>-keyra-tfstate --region <region> --create-bucket-configuration LocationConstraint=<region>   # once per account; omit the last flag in us-east-1
+   aws s3api put-bucket-versioning --bucket <account>-keyra-tfstate --region <region> --versioning-configuration Status=Enabled
+   terraform init && terraform apply
+   aws secretsmanager get-secret-value --secret-id <name>-bootstrap-admin-password --region <region> --query SecretString --output text   # the generated admin password
+   ```
+
+Prefer variables to a generated file? `infra/examples/aws` is the same root driven by `terraform.tfvars` (copy `terraform.tfvars.example`): `terraform init -backend-config="bucket=<account>-keyra-tfstate" -backend-config="region=<region>"`, then `terraform apply`.
+
+`terraform apply` waits until the new tasks are healthy behind the load balancer (a failing rollout is rolled back), then checks `/actuator/health`. If it hangs or fails, read the ECS service events and the `/keyra/<name>` log group.
+
+The RDS instance and the load balancer have deletion protection on by default (`deletion_protection = false` to tear an instance down; it also skips the final RDS snapshot and deletes secrets without the 30-day recovery window, so the same `name` can be reused at once). Bump `jwt_key_version` or `db_password_version` to rotate those secrets.
+
+#### Database and network modes on AWS
+
+| Mode | Inputs | What the module creates |
+|---|---|---|
+| RDS (default) | none | VPC over two AZs; tasks in public subnets with public IPs that only the load balancer can reach (no NAT gateway); RDS in private subnets with TLS required, encrypted storage, 7 days of backups and point-in-time recovery (`db_backup_retention_days`; AWS free-plan accounts only allow 1) |
+| Your own Postgres, public | `external_database` | The same VPC, without RDS; tasks connect over the internet |
+| Your own Postgres, IP allowlist | `external_database`, `egress = { static_ip = true }` | Tasks move to private subnets behind one NAT gateway with an Elastic IP (`egress_ip` output) |
+| Your own Postgres, your VPC | `external_database`, `egress = { vpc_id, task_subnet_ids, alb_subnet_ids }` | No networking: tasks run in your subnets (which need their own route out, e.g. a NAT, to pull the image and reach AWS APIs) and the load balancer in your `alb_subnet_ids`: public subnets with a domain, private ones (in a VPC with an internet gateway) without. Allow the `task_security_group_id` output on your database |
+
+With the IP allowlist mode, create the address first and allowlist it, because Keyra can't start until your database accepts it:
+
+```bash
+terraform apply -target=module.keyra.aws_eip.egress
+terraform output egress_ip   # add to your database's allowlist, then run terraform apply
+```
+
+On AWS, `external_database.password_secret_id` must be the secret's full ARN. If the secret uses your own KMS key, grant the execution role (`<name>-execution`) `kms:Decrypt` on it.
+
+RDS has no API for creating roles, so Keyra connects as the instance's master user `keyra`, which owns the `keyra` database. The [Using your own Postgres](#using-your-own-postgres) requirements apply to an external database as on GCP.
+
+`app_databases` works on RDS too. Because RDS has no API for databases or roles, a small function in the private subnets (`<name>-app-db`, Python, no dependencies) connects as the master user over verified TLS and creates each database and its owner role. It reads the passwords from Secrets Manager itself, so they never appear in Terraform state, and sends Postgres a SCRAM verifier, never the plaintext. It runs again only when you bump `password_version`, and removing an entry keeps the data. Each app role owns its database and PUBLIC access is revoked, so other apps can't connect. Keyra's own user ends with no access to app data: it can't read the tables or `SET ROLE` to the app role, and keeps only the ADMIN grant Postgres gives a role's creator, which the function needs to reset the password. That isolation has one limit RDS can't remove: Keyra's user is the master user, a member of `rds_superuser`, so stolen Keyra database credentials could grant themselves access. If an app's data must not depend on Keyra's credentials, give it its own server. Without a NAT gateway it reaches Secrets Manager through a VPC endpoint the module adds (about $15/month while `app_databases` is set). Your apps reach the database from the module VPC (`vpc_id` output); give their security group access on the RDS security group (`<name>-db`).
+
+#### Metrics on AWS
+
+Set `metrics_enabled = true` to export metrics to CloudWatch, namespace `Keyra`. An AWS Distro for OpenTelemetry collector sidecar receives Keyra's OTLP push and writes CloudWatch embedded-metric logs to `/keyra/<name>/metrics`. The sidecar shares the task's existing CPU and memory, so the task costs the same; CloudWatch bills per custom metric, so only these are kept:
+
+- `keyra.key.validations` by `outcome` (`valid` / `invalid`).
+- `http.server.requests` by `uri` and `status`: count, sum, min and max in milliseconds. CloudWatch receives no histogram buckets, so use the load balancer's built-in `TargetResponseTime` (namespace `AWS/ApplicationELB`, p95 statistic) for latency percentiles.
+- `hikaricp.connections`, `.active`, `.pending`, `.max` by `pool`.
+- `jvm.memory.used` by `area`.
+
+Find them in CloudWatch → Metrics → All metrics → `Keyra`, or with `aws cloudwatch list-metrics --namespace Keyra`.
 
 ### Configuration
 
