@@ -139,7 +139,7 @@ Products verify user access tokens locally with Keyra's public keys:
 | User auth | `POST /api/auth/register`, `/login`, `/refresh`, `/logout`; `GET /api/auth/me` |
 | Manager auth | `POST /api/manager/auth/login`, `/refresh`, `/logout`; `GET /api/manager/me` |
 | Managers | `POST/GET/PATCH/DELETE /api/manager/managers` (admin only) |
-| Users | `PATCH /api/manager/users/{id}` (any manager; enable or disable a user) |
+| Users | `GET /api/manager/users?q=&page=&size=` (search by email, newest first, size capped at 100), `PATCH /api/manager/users/{id}` (any manager; enable or disable a user) |
 | Products | `POST/GET/PATCH /api/manager/products`, `PUT /api/manager/products/{id}/managers`, `PUT /api/manager/products/{id}/user-keys` (admin or assigned manager) |
 | Keys | `POST/GET /api/manager/products/{id}/keys`, `POST .../keys/{keyId}/rotate`, `POST .../keys/{keyId}/revoke`, `PATCH .../keys/{keyId}`, `POST /api/manager/products/{id}/users/{userId}/keys/revoke` |
 | User keys | `POST/GET /api/products/{slug}/keys`, `POST .../keys/{keyId}/rotate`, `POST .../keys/{keyId}/revoke` (user token) |

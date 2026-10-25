@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.jayway.jsonpath.JsonPath;
 import com.rodrigues.keyra.IntegrationTest;
+import com.rodrigues.keyra.MutableClock;
+import java.time.Duration;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +19,9 @@ class UserManagementIntegrationTests {
 
     @Autowired
     MockMvcTester mvc;
+
+    @Autowired
+    MutableClock clock;
 
     AuthApi api;
 
@@ -64,5 +69,57 @@ class UserManagementIntegrationTests {
                         "{\"status\": \"DISABLED\"}",
                         user.accessToken()))
                 .hasStatus(HttpStatus.UNAUTHORIZED);
+    }
+
+    @Test
+    void managerListsAndSearchesUsersNewestFirstWithPaging() {
+        String tag = java.util.UUID.randomUUID().toString();
+        String first = "a-" + tag + "@example.com";
+        String second = "b-" + tag + "@example.com";
+        api.register(first, AuthApi.PASSWORD);
+        clock.advance(Duration.ofSeconds(1));
+        api.register(second, AuthApi.PASSWORD);
+        String manager = api.createManagerAndLogin("MANAGER").tokens().accessToken();
+
+        // q is matched case-insensitively
+        var all = api.get("/api/manager/users?q=" + tag.toUpperCase(java.util.Locale.ROOT), manager);
+        assertThat(all)
+                .hasStatusOk()
+                .bodyJson()
+                .hasPathSatisfying("$.total", v -> v.assertThat().isEqualTo(2));
+        assertThat(all)
+                .bodyJson()
+                .hasPathSatisfying("$.items[0].email", v -> v.assertThat().isEqualTo(second));
+        assertThat(all)
+                .bodyJson()
+                .hasPathSatisfying("$.items[1].email", v -> v.assertThat().isEqualTo(first));
+
+        var page = api.get("/api/manager/users?q=" + tag + "&page=1&size=1", manager);
+        assertThat(page)
+                .hasStatusOk()
+                .bodyJson()
+                .hasPathSatisfying("$.total", v -> v.assertThat().isEqualTo(2));
+        assertThat(page)
+                .bodyJson()
+                .hasPathSatisfying("$.items", v -> v.assertThat().asList().hasSize(1));
+        assertThat(page)
+                .bodyJson()
+                .hasPathSatisfying("$.items[0].email", v -> v.assertThat().isEqualTo(first));
+        assertThat(page)
+                .bodyJson()
+                .hasPathSatisfying("$.page", v -> v.assertThat().isEqualTo(1));
+    }
+
+    @Test
+    void sizeIsClampedToTheCapAndUserTokensAreRejected() {
+        String manager = api.createManagerAndLogin("MANAGER").tokens().accessToken();
+        assertThat(api.get("/api/manager/users?size=1000&page=-3", manager))
+                .hasStatusOk()
+                .bodyJson()
+                .hasPathSatisfying("$.size", v -> v.assertThat().isEqualTo(100))
+                .hasPathSatisfying("$.page", v -> v.assertThat().isEqualTo(0));
+
+        var user = api.registerAndLogin();
+        assertThat(api.get("/api/manager/users", user.accessToken())).hasStatus(HttpStatus.UNAUTHORIZED);
     }
 }
