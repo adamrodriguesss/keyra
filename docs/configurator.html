@@ -5,135 +5,143 @@
 <title>Keyra Configurator</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;500&family=Atkinson+Hyperlegible+Next:wght@400;500;600;700&display=swap">
 <style>
-/* Layout: title + live status, then the request path drawn as one transit line, then choices (left) beside what they produce (right). One column on phones, where the line turns vertical. */
+/* Layout: title (which is also the cloud switch) + live status, then the request path drawn as one transit line, then choices (left) beside what they produce (right). One column on phones, where the line turns vertical. */
 :root {
-  --paper: #edf0f5;
+  --paper: #f3f4f1;
   --surface: #ffffff;
-  --sunken: #e3e8f0;
-  --ink: #1b2340;
-  --muted: #5a6378;
-  --rule: #cdd3df;
-  --made: #3a4cc0;
-  --made-soft: #e2e6fa;
-  --yours: #9c7419;
-  --yours-soft: #f5ecd6;
+  --sunken: #e7e9e4;
+  --ink: #1a1d1b;
+  --muted: #5c635e;
+  --rule: #d3d7d1;
+  --made: #0e6b5c;
+  --made-soft: #ddede8;
+  --yours: #8a6a1f;
+  --yours-soft: #f1e8d2;
   --error: #b42318;
   --error-soft: #fde7e4;
-  --code-bg: #1b2340;
-  --code-fg: #dfe4f5;
-  --code-key: #a9b4ff;
-  --code-str: #e8c77c;
-  --code-dim: #8089a6;
-  --sans: "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
-  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --code-bg: #101513;
+  --code-fg: #dce5df;
+  --code-key: #7fd6c0;
+  --code-str: #e0c07a;
+  --code-dim: #7e8c84;
+  --sans: "Atkinson Hyperlegible Next", "Helvetica Neue", Arial, sans-serif;
+  --mono: "Atkinson Hyperlegible Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --paper: #121727; --surface: #1a2034; --sunken: #222a42; --ink: #e4e8f3; --muted: #9aa3ba; --rule: #2f3854;
-    --made: #95a2ff; --made-soft: #262f5c; --yours: #e0b456; --yours-soft: #3a2f17;
-    --error: #f88a7e; --error-soft: #3d1a17; --code-bg: #0e1220; --code-fg: #dfe4f5; --code-key: #a9b4ff; --code-str: #e8c77c; --code-dim: #6f7896;
+    --paper: #141816; --surface: #1b201d; --sunken: #232925; --ink: #e6e9e6; --muted: #9aa39d; --rule: #343b36;
+    --made: #5cc3ae; --made-soft: #1e3a34; --yours: #d9b35e; --yours-soft: #3a301a;
+    --error: #f28b80; --error-soft: #3f1e1b; --code-bg: #0b0f0d; --code-fg: #dce5df; --code-key: #7fd6c0; --code-str: #e0c07a; --code-dim: #7e8c84;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --paper: #121727; --surface: #1a2034; --sunken: #222a42; --ink: #e4e8f3; --muted: #9aa3ba; --rule: #2f3854;
-  --made: #95a2ff; --made-soft: #262f5c; --yours: #e0b456; --yours-soft: #3a2f17;
-  --error: #f88a7e; --error-soft: #3d1a17; --code-bg: #0e1220; --code-fg: #dfe4f5; --code-key: #a9b4ff; --code-str: #e8c77c; --code-dim: #6f7896;
+  --paper: #141816; --surface: #1b201d; --sunken: #232925; --ink: #e6e9e6; --muted: #9aa39d; --rule: #343b36;
+  --made: #5cc3ae; --made-soft: #1e3a34; --yours: #d9b35e; --yours-soft: #3a301a;
+  --error: #f28b80; --error-soft: #3f1e1b; --code-bg: #0b0f0d; --code-fg: #dce5df; --code-key: #7fd6c0; --code-str: #e0c07a; --code-dim: #7e8c84;
   color-scheme: dark;
 }
 
-* { box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; background: var(--paper); color: var(--ink); font: 400 15px/1.55 var(--sans); }
 code { font: 0.92em var(--mono); }
-.wrap { max-width: 1240px; margin: 0 auto; padding: 32px 16px 72px; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 40px 16px 72px; }
 @media (min-width: 700px) { .wrap { padding-inline: 28px; } }
 
 /* Title row */
 header.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 32px; }
-h1 { margin: 0; font: 800 clamp(30px, 5vw, 46px)/1.02 var(--sans); letter-spacing: -0.025em; }
-.lede { margin: 10px 0 0; color: var(--muted); max-width: 64ch; font-size: 16px; }
-.example { margin: 6px 0 0; font-size: 13.5px; color: var(--yours); }
-.clouds { display: inline-flex; gap: 4px; padding: 4px; margin: 0 0 14px; background: var(--sunken); border-radius: 999px; }
-.clouds label { position: relative; cursor: pointer; }
-.clouds input { position: absolute; opacity: 0; pointer-events: none; }
-.clouds span { display: block; padding: 6px 16px; border-radius: 999px; font: 600 14px var(--sans); color: var(--muted); transition: background-color .15s, color .15s; }
-.clouds label:hover span { color: var(--ink); }
-.clouds input:checked + span { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgb(0 0 0 / .14); }
-.clouds input:focus-visible + span { outline: 2.5px solid var(--made); outline-offset: 2px; }
+h1 { margin: 0; font: 700 clamp(34px, 5.4vw, 52px)/1.08 var(--sans); letter-spacing: -0.02em; }
+/* The cloud names are the radios: the chosen one in ink with an underline, the other muted. */
+h1 label { font: inherit; cursor: pointer; color: var(--muted); position: relative; }
+h1 input { position: absolute; opacity: 0; pointer-events: none; }
+h1 label:hover { color: var(--ink); }
+h1 label:has(input:checked) { color: var(--ink); text-decoration: underline; text-decoration-color: var(--made); text-decoration-thickness: 0.08em; text-underline-offset: 0.14em; }
+h1 label:has(input:focus-visible) { outline: 2.5px solid var(--made); outline-offset: 4px; border-radius: 4px; }
+h1 .sep { color: var(--muted); font-weight: 400; }
+.lede { margin: 14px 0 0; color: var(--muted); max-width: 64ch; font-size: 15px; }
+.example { margin: 6px 0 0; font-size: 13px; color: var(--yours); }
 .stack { display: grid; gap: 14px; min-width: 0; }
-.status { display: flex; align-items: center; gap: 10px; font: 600 14px var(--sans); padding: 9px 14px 9px 12px; border-radius: 999px; border: 1.5px solid currentColor; appearance: none; margin: 0; text-align: left; }
+.status { display: flex; align-items: center; gap: 10px; font: 600 15px var(--sans); padding: 4px 0; border: 0; background: none; appearance: none; margin: 0; text-align: left; }
 .status.bad { cursor: pointer; }
 .status.ok { cursor: default; }
-button.linkish { display: block; margin: 6px 0 0; padding: 0; border: 0; background: none; font: 13.5px var(--sans); color: var(--made); text-decoration: underline; cursor: pointer; }
-.status.ok { color: var(--made); background: var(--made-soft); }
-.status.bad { color: var(--error); background: var(--error-soft); }
-.status .dot { width: 9px; height: 9px; border-radius: 50%; background: currentColor; flex: none; }
-.status span:last-child { color: var(--ink); font-weight: 500; }
+button.linkish { display: block; margin: 6px 0 0; padding: 0; border: 0; background: none; font: 13px var(--sans); color: var(--made); text-decoration: underline; cursor: pointer; }
+.status.ok { color: var(--made); }
+.status.bad { color: var(--error); }
+.status.bad:hover span:last-child { text-decoration: underline; }
+.status .dot { width: 9px; height: 9px; background: currentColor; flex: none; }
+.status span:last-child { color: inherit; }
 
-/* The request path: one transit line, stations for each hop. */
-.route { margin: 28px 0 32px; padding: 24px 24px 18px; background: var(--surface); border-radius: 16px; border: 1px solid var(--rule); }
-.route h2 { margin: 0 0 18px; font: 700 17px var(--sans); }
-.route h2 span { font-weight: 400; color: var(--muted); }
-.line { --dot: 20px; list-style: none; margin: 0; padding: 0; display: flex; position: relative; }
-.line::before { content: ""; position: absolute; left: calc(var(--dot) / 2); right: calc(var(--dot) / 2); top: calc(var(--dot) / 2 - 2px); height: 4px; border-radius: 2px; background: var(--made); transform-origin: left; animation: draw .7s cubic-bezier(.3,.7,.3,1) both; }
+/* The request path: one transit line, stations for each hop. It sits straight on the page. */
+.route { margin: 44px 0 48px; }
+.route h2 { margin: 0 0 28px; font: 700 20px/1.25 var(--sans); }
+.route h2 span { display: block; margin-top: 2px; font-size: 15px; font-weight: 400; color: var(--muted); }
+.line { --dot: 24px; list-style: none; margin: 0; padding: 0; display: flex; position: relative; }
+.line::before { content: ""; position: absolute; left: calc(var(--dot) / 2); right: calc(var(--dot) / 2); top: calc(var(--dot) / 2 - 3px); height: 6px; border-radius: 3px; background: var(--made); transform-origin: left; animation: draw .7s cubic-bezier(.3,.7,.3,1) both; }
 @keyframes draw { from { transform: scaleX(0); } }
 .stop { flex: 1 1 0; min-width: 0; position: relative; display: grid; gap: 2px; align-content: start; padding-right: 12px; }
-.stop::before { content: ""; width: var(--dot); height: var(--dot); border-radius: 50%; background: var(--made); box-shadow: 0 0 0 4px var(--surface); position: relative; margin-bottom: 12px; }
-.stop:last-child::after { content: ""; position: absolute; left: var(--dot); right: -1px; top: calc(var(--dot) / 2 - 3px); height: 6px; background: var(--surface); }
-.stop.yours::before { background: var(--surface); border: 3px dashed var(--yours); }
-.stop.ext::before { background: var(--surface); border: 3px solid var(--muted); }
-.stop b { font: 650 15px/1.25 var(--sans); }
-.stop small { font: 12.5px/1.4 var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+.stop::before { content: ""; width: var(--dot); height: var(--dot); border-radius: 50%; background: var(--made); position: relative; margin-bottom: 34px; }
+/* The line spans the whole row; this hides the stretch past the last dot. */
+.stop:last-child::after { content: ""; position: absolute; left: var(--dot); right: -1px; top: calc(var(--dot) / 2 - 4px); height: 8px; background: var(--paper); }
+.stop.yours::before { background: var(--paper); border: 4px dashed var(--yours); }
+.stop.ext::before { background: var(--paper); border: 4px solid var(--muted); }
+.stop b { font: 700 15px/1.25 var(--sans); }
+.stop small { font: 13px/1.4 var(--mono); color: var(--muted); overflow-wrap: anywhere; }
 .stop .apps { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
-/* A hop is zero-width at the boundary between two stops; its label sits mid-way along the track segment before it. */
+/* A hop is zero-width at the boundary between two stops; its label sits mid-way along the segment before it, under the line. */
 .line { container-type: inline-size; }
-.hop { flex: 0 0 0; width: 0; position: relative; font: 600 12px/1 var(--sans); color: var(--made); }
-.hop span { position: absolute; top: calc(var(--dot) / 2 - 9px); left: calc(-100cqi / var(--n, 4) / 2); transform: translateX(-50%); white-space: nowrap; background: var(--surface); padding: 3px 8px; border-radius: 999px; border: 1.5px solid var(--made); }
-.route .key { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--rule); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px 24px; font-size: 13.5px; color: var(--muted); }
+.hop { flex: 0 0 0; width: 0; position: relative; font: 400 13px/1 var(--sans); color: var(--muted); }
+.hop span { position: absolute; top: calc(var(--dot) + 8px); left: calc(-100cqi / var(--n, 4) / 2); transform: translateX(-50%); white-space: nowrap; }
+.route .key { margin-top: 28px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px 24px; font-size: 13px; color: var(--muted); }
 .route .secrets { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .legend { display: flex; flex-wrap: wrap; gap: 16px; }
 .legend span { display: inline-flex; align-items: center; gap: 7px; }
 .legend i { width: 12px; height: 12px; border-radius: 50%; }
 .legend .l-made { background: var(--made); }
 .legend .l-yours { border: 2px dashed var(--yours); }
-.chip { font: 12px var(--mono); border-radius: 6px; padding: 2px 7px; background: var(--made-soft); color: var(--ink); }
+.chip { font: 13px var(--mono); border-radius: 4px; padding: 1px 6px; background: var(--made-soft); color: var(--ink); }
 .chip.yours { background: var(--yours-soft); }
 @media (max-width: 760px) {
   .line { flex-direction: column; }
-  .line::before { left: calc(var(--dot) / 2 - 2px); right: auto; top: calc(var(--dot) / 2); bottom: calc(var(--dot) / 2); width: 4px; height: auto; transform-origin: top; animation-name: drawv; }
+  .line::before { left: calc(var(--dot) / 2 - 3px); right: auto; top: calc(var(--dot) / 2); bottom: calc(var(--dot) / 2); width: 6px; height: auto; transform-origin: top; animation-name: drawv; }
   @keyframes drawv { from { transform: scaleY(0); } }
   .stop { grid-template-columns: var(--dot) minmax(0, 1fr); column-gap: 14px; padding: 0; }
   .stop::before { grid-row: span 3; margin: 0; }
   .stop:last-child::after { display: none; }
   .stop > * { grid-column: 2; }
   .hop { width: auto; margin: 8px 0 12px calc(var(--dot) + 14px); }
-  .hop span { position: static; transform: none; display: inline-block; }
+  .hop span { position: static; transform: none; display: inline-block; white-space: normal; }
 }
 
 /* Choices and outputs */
 .grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 28px; align-items: start; }
-@media (max-width: 960px) { .grid { grid-template-columns: minmax(0, 1fr); } }
-@media (min-width: 961px) { form { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; overscroll-behavior: contain; } }
+@media (max-width: 960px) { .grid { grid-template-columns: minmax(0, 1fr); gap: 40px; } }
+@media (min-width: 961px) {
+  form { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; overscroll-behavior: contain; }
+  .out { border-left: 1px solid var(--rule); padding-left: 28px; }
+}
 
-form { background: var(--surface); border: 1px solid var(--rule); border-radius: 16px; padding: 4px 22px 22px; }
+form { padding: 0; }
 fieldset { border: 0; margin: 0; padding: 20px 0 0; display: grid; gap: 14px; min-width: 0; }
+fieldset:first-child { padding-top: 0; }
 fieldset + fieldset { margin-top: 22px; border-top: 1px solid var(--rule); }
-legend { float: left; width: 100%; padding: 0; margin-bottom: 2px; font: 700 18px/1.2 var(--sans); letter-spacing: -0.01em; }
+legend { float: left; width: 100%; padding: 0; margin-bottom: 2px; font: 700 20px/1.25 var(--sans); }
 legend + * { clear: both; }
 .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; }
+/* Machine sizes carry their specs in the label, too long to share a row. */
+[data-for="db_tier"], [data-for="rds_tier"] { grid-column: 1 / -1; }
 .field { display: grid; gap: 5px; min-width: 0; align-content: start; }
-label, .label { font: 600 14px var(--sans); }
-.hint { font-size: 13px; color: var(--muted); line-height: 1.45; }
+label, .label { font: 600 15px var(--sans); }
+.hint { font-size: 13px; color: var(--muted); line-height: 1.45; max-width: 68ch; }
 input[type="text"], input[type="email"], input[type="number"], select {
-  width: 100%; font: 14px var(--mono); color: var(--ink); background: var(--paper);
-  border: 1.5px solid transparent; border-radius: 8px; padding: 9px 11px;
+  width: 100%; font: 14px var(--mono); color: var(--ink); background: var(--surface);
+  border: 1.5px solid var(--rule); border-radius: 4px; padding: 9px 11px;
 }
-input:hover, select:hover { border-color: var(--rule); }
+input:hover, select:hover { border-color: var(--muted); }
 input:focus-visible, select:focus-visible, button:focus-visible, .choice input:focus-visible + span, .check input:focus-visible { outline: 2.5px solid var(--made); outline-offset: 2px; }
 .field.invalid input, .field.invalid select { border-color: var(--error); background: var(--error-soft); }
 .err { color: var(--error); font-size: 13px; font-weight: 500; }
@@ -142,66 +150,59 @@ input:focus-visible, select:focus-visible, button:focus-visible, .choice input:f
 .choices { display: grid; gap: 8px; }
 .choice { position: relative; display: block; cursor: pointer; }
 .choice input { position: absolute; opacity: 0; pointer-events: none; }
-.choice span { display: grid; grid-template-columns: 18px minmax(0, 1fr); column-gap: 12px; row-gap: 1px; border-radius: 10px; padding: 11px 13px; background: var(--paper); border: 1.5px solid transparent; transition: border-color .15s, background-color .15s; }
+.choice span { display: grid; grid-template-columns: 18px minmax(0, 1fr); column-gap: 12px; row-gap: 1px; border-radius: 4px; padding: 11px 13px; background: var(--surface); border: 1.5px solid var(--rule); transition: border-color .15s, background-color .15s; }
 .choice span::before { content: ""; grid-row: span 2; width: 18px; height: 18px; margin-top: 1px; border-radius: 50%; border: 2px solid var(--muted); background: var(--surface); }
-.choice b { font: 600 14.5px var(--sans); }
+.choice b { font: 600 15px var(--sans); }
 .choice i { font-style: normal; font-size: 13px; color: var(--muted); }
-.choice:hover span { border-color: var(--rule); }
+.choice:hover span { border-color: var(--muted); }
 .choice input:checked + span { border-color: var(--made); background: var(--made-soft); }
 .choice input:checked + span::before { border-color: var(--made); background: radial-gradient(circle, var(--made) 0 4px, var(--surface) 5px); }
 .check { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 12px; align-items: start; cursor: pointer; }
 .check input { margin: 2px 0 0; width: 18px; height: 18px; accent-color: var(--made); }
 
 .out { display: grid; gap: 22px; min-width: 0; }
-.journey { list-style: none; margin: 0; padding: 0; position: relative; display: grid; gap: 36px; }
-.station { position: relative; padding-left: 40px; min-width: 0; }
-.station::before { content: ""; position: absolute; left: 0; top: 2px; z-index: 1; width: 20px; height: 20px; border-radius: 50%; background: var(--made); box-shadow: 0 0 0 4px var(--paper); }
-/* Track to the next dot's centre (36px gap + 10px); the last station has none, so it can't overrun. */
-.station:not(:last-child)::after { content: ""; position: absolute; left: 8px; top: 12px; bottom: -46px; width: 4px; border-radius: 2px; background: var(--made); }
-.station.yours::before { background: var(--paper); border: 3px dashed var(--yours); }
-.station.end::before { background: var(--paper); border: 5px solid var(--made); }
-.station h2 { font: 700 20px/24px var(--sans); letter-spacing: -0.01em; margin: 0 0 4px; }
-.station .sub { color: var(--muted); font-size: 14px; margin: 0 0 12px; max-width: 70ch; }
+.journey { list-style: none; margin: 0; padding: 0; display: grid; }
+.station { padding: 32px 0; border-top: 1px solid var(--rule); min-width: 0; }
+.station:first-child { padding-top: 0; border-top: 0; }
+.station:last-child { padding-bottom: 0; }
+.station h2 { font: 700 20px/1.25 var(--sans); margin: 0 0 4px; }
+.station .sub { color: var(--muted); font-size: 15px; margin: 0 0 14px; max-width: 68ch; }
 .station > .codehead { align-items: flex-start; }
 
 .res { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 0 24px; margin: 0; padding: 0; list-style: none; }
-.res li { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; border-bottom: 1px solid var(--rule); padding: 7px 0; }
-.res li span:last-child { font: 600 14px var(--sans); font-variant-numeric: tabular-nums; }
-.math { margin-top: 14px; font-size: 14px; padding: 12px 14px; border-radius: 10px; background: var(--sunken); }
+.res li { display: flex; justify-content: space-between; gap: 12px; font-size: 15px; border-bottom: 1px solid var(--rule); padding: 7px 0; }
+.res li span:last-child { font: 600 15px var(--sans); font-variant-numeric: tabular-nums; }
+.math { margin-top: 14px; font-size: 15px; padding: 12px 14px; border-radius: 4px; background: var(--sunken); max-width: 75ch; }
 .math.warn { background: var(--error-soft); }
 
 .codehead { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
-button.copy { font: 600 13px var(--sans); color: var(--made); background: var(--surface); border: 1.5px solid var(--made); border-radius: 8px; padding: 5px 13px; cursor: pointer; transition: background-color .15s; }
+button.copy { font: 600 13px var(--sans); color: var(--made); background: transparent; border: 1.5px solid var(--made); border-radius: 4px; padding: 5px 13px; cursor: pointer; transition: background-color .15s; }
 button.copy:hover { background: var(--made-soft); }
-button.copy.done { color: var(--surface); background: var(--made); }
-pre { margin: 0; background: var(--code-bg); color: var(--code-fg); font: 13px/1.65 var(--mono); padding: 16px 18px; border-radius: 12px; overflow-x: auto; white-space: pre; }
+button.copy.done { color: var(--paper); background: var(--made); }
+pre { margin: 0; background: var(--code-bg); color: var(--code-fg); font: 13px/1.65 var(--mono); padding: 16px 18px; border-radius: 6px; overflow-x: auto; white-space: pre; }
 pre .k { color: var(--code-key); }
 pre .s { color: var(--code-str); }
 pre .c { color: var(--code-dim); }
 .maintf pre { padding: 20px 22px; font-size: 13.5px; }
 
 ol.steps { margin: 0; padding: 0; list-style: none; display: grid; gap: 22px; counter-reset: step; }
-ol.steps > li { counter-increment: step; display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 2px 12px; }
-ol.steps > li::before { content: counter(step); grid-row: span 2; font: 700 14px/30px var(--sans); width: 30px; height: 30px; text-align: center; border-radius: 50%; border: 2px solid var(--made); color: var(--made); }
-.station.yours ol.steps > li::before { border-color: var(--yours); color: var(--yours); }
-ol.steps h3 { margin: 4px 0 0; font: 650 15.5px var(--sans); }
-ol.steps .note { font-size: 13.5px; color: var(--muted); margin: 0 0 8px; }
+ol.steps > li { counter-increment: step; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 2px 8px; }
+ol.steps > li::before { content: counter(step); grid-row: span 2; font: 700 15px/24px var(--sans); color: var(--made); font-variant-numeric: tabular-nums; }
+.station.yours ol.steps > li::before { color: var(--yours); }
+ol.steps h3 { margin: 0; font: 700 15px/24px var(--sans); }
+ol.steps .note { font-size: 13px; color: var(--muted); margin: 0 0 8px; max-width: 68ch; }
 ol.steps .codehead { margin-bottom: 6px; justify-content: flex-end; }
 
 details { margin-top: 18px; }
 summary { cursor: pointer; font-weight: 600; }
-footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75ch; }
+footer { margin-top: 48px; font-size: 13px; color: var(--muted); max-width: 75ch; }
 @media (prefers-reduced-motion: reduce) { *, *::before { transition: none !important; animation: none !important; } }
 </style>
 
 <div class="wrap">
   <header class="top">
     <div>
-      <div class="clouds" role="radiogroup" aria-label="Cloud">
-        <label><input type="radio" name="cloud" id="cloud_gcp" value="gcp" checked><span>Google Cloud</span></label>
-        <label><input type="radio" name="cloud" id="cloud_aws" value="aws"><span>AWS</span></label>
-      </div>
-      <h1>Keyra on <span data-cloud="gcp">Google Cloud</span><span data-cloud="aws">AWS</span></h1>
+      <h1>Keyra on <span role="radiogroup" aria-label="Cloud"><label><input type="radio" name="cloud" id="cloud_gcp" value="gcp" checked><span>Google Cloud</span></label> <span class="sep" aria-hidden="true">/</span> <label><input type="radio" name="cloud" id="cloud_aws" value="aws"><span>AWS</span></label></span></h1>
       <p class="lede">Pick how your instance should run. You get the steps to prepare your database, a <code>main.tf</code>, and the commands to deploy it. Nothing leaves your browser, and the page never asks for a password.</p>
       <p class="example" id="exampleTag">These are example values. Replace them with yours.</p>
       <button type="button" class="linkish" id="reset" hidden>Start over with the example</button>
@@ -210,7 +211,7 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
   </header>
 
   <section class="route" aria-labelledby="routeTitle">
-    <h2 id="routeTitle">How a request reaches your data <span>— and what Terraform builds along the way</span></h2>
+    <h2 id="routeTitle">How a request reaches your data <span>And what Terraform builds along the way.</span></h2>
     <ol class="line" id="topo"></ol>
     <div class="key">
       <div class="secrets" id="secrets"></div>
@@ -489,7 +490,7 @@ footer { margin-top: 40px; font-size: 13.5px; color: var(--muted); max-width: 75
           <p class="sub">Save it as <code>main.tf</code> in an empty folder. Values that match the defaults are left out.</p>
           <pre id="maintf"></pre>
           <details>
-            <summary>What Terraform creates · <span id="resTotal"></span></summary>
+            <summary>What Terraform creates (<span id="resTotal"></span>)</summary>
             <p class="sub">Compare this with <code>terraform plan</code> before you apply.</p>
             <ul class="res" id="resources"></ul>
           </details>
@@ -770,32 +771,32 @@ ${mod}
     if (v.aws) {
       const ownVpc = !(v.db === "external" && v.net === "private");
       html += v.domain
-        ? hop("HTTPS") + stop("Load balancer", `${v.domain_name} · ACM certificate`)
+        ? hop("HTTPS") + stop("Load balancer", `${v.domain_name}, ACM certificate`)
         : hop("HTTPS") + stop("CloudFront", "<id>.cloudfront.net") + hop("VPC origin") + stop("Load balancer", "internal, no public address");
-      html += hop("port 8080") + stop("ECS Fargate", `${v.name} · ${v.replicas}–${v.max_replicas} tasks${ownVpc ? "" : " · " + v.vpc_id}`);
+      html += hop("port 8080") + stop("ECS Fargate", `${v.name}, ${v.replicas}–${v.max_replicas} tasks${ownVpc ? "" : ", " + v.vpc_id}`);
       if (v.db === "managed") {
-        html += hop("private subnet, TLS") + stop("RDS", `Postgres ${v.postgres_version} · ${v.rds_tier}`, "", appChips(v));
+        html += hop("private subnet, TLS") + stop("RDS", `Postgres ${v.postgres_version}, ${v.rds_tier}`, "", appChips(v));
       } else if (v.net === "public") {
         html += hop("internet, TLS") + stop(label, dbHost(v.jdbc_url), "yours");
       } else if (v.net === "static") {
         html += hop("all traffic") + stop("NAT gateway", "Elastic IP") + hop("internet, TLS")
-          + stop(label, dbHost(v.jdbc_url) + " · allowlist the IP", "yours");
+          + stop(label, dbHost(v.jdbc_url) + " (allowlist the IP)", "yours");
       } else {
-        html += hop("your VPC, TLS") + stop(label, dbHost(v.jdbc_url) + " · allow the task subnets", "yours");
+        html += hop("your VPC, TLS") + stop(label, dbHost(v.jdbc_url) + " (allow the task subnets)", "yours");
       }
     } else {
-      html += hop("HTTPS") + stop("Cloud Run", `${v.name} · ${v.replicas}–${v.max_replicas} instances`);
+      html += hop("HTTPS") + stop("Cloud Run", `${v.name}, ${v.replicas}–${v.max_replicas} instances`);
       if (v.db === "managed") {
-        html += hop("private VPC") + stop("VPC", `${v.name} · Direct VPC egress`) + hop("private IP, TLS")
-          + stop("Cloud SQL", `${v.cloud_sql_version.replace("POSTGRES_", "Postgres ")} · ${v.db_tier}`, "", appChips(v));
+        html += hop("private VPC") + stop("VPC", `${v.name}, Direct VPC egress`) + hop("private IP, TLS")
+          + stop("Cloud SQL", `${v.cloud_sql_version.replace("POSTGRES_", "Postgres ")}, ${v.db_tier}`, "", appChips(v));
       } else if (v.net === "public") {
         html += hop("internet, TLS") + stop(label, dbHost(v.jdbc_url), "yours");
       } else if (v.net === "static") {
         html += hop("all traffic") + stop("Cloud NAT", "reserved static IP") + hop("internet, TLS")
-          + stop(label, dbHost(v.jdbc_url) + " · allowlist the IP", "yours");
+          + stop(label, dbHost(v.jdbc_url) + " (allowlist the IP)", "yours");
       } else {
         const net = (v.network.split("/").pop()) || "your VPC";
-        html += hop("private ranges") + stop("Your network", `${net} · peering, VPN or Interconnect`, "yours") + hop("TLS")
+        html += hop("private ranges") + stop("Your network", `${net} (peering, VPN or Interconnect)`, "yours") + hop("TLS")
           + stop(label, dbHost(v.jdbc_url), "yours");
       }
     }
