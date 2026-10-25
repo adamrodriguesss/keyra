@@ -11,7 +11,7 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
 
-/** Who did what to which object. Write-only for now: nothing reads these back through the API. */
+/** Who did what to which object. Read back per product through the audit events endpoint. */
 @Entity
 @Table(name = "audit_events")
 public class AuditEvent {
@@ -77,6 +77,14 @@ public class AuditEvent {
                 AuditTargetType.API_KEY,
                 key.getId(),
                 key.getExpiresAt());
+    }
+
+    public UUID getId() {
+        return id;
+    }
+
+    public UUID getTargetId() {
+        return targetId;
     }
 
     public AuditAction getAction() {

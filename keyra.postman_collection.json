@@ -1054,6 +1054,52 @@
           }
         },
         {
+          "name": "List audit events",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/manager/products/{{productId}}/audit-events?page=0&size=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "manager",
+                "products",
+                "{{productId}}",
+                "audit-events"
+              ],
+              "query": [
+                {
+                  "key": "keyId",
+                  "value": "{{keyId}}",
+                  "disabled": true
+                },
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "50"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{managerAccessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "description": "Lifecycle events of the product's keys, newest first, with the actor's email (null for `SYSTEM` expiry) and the key's name and prefix. Enable `keyId` to filter to one key; `size` is capped at 100. Expiry events appear once a key read (list, validate) has noticed the key expired."
+          }
+        },
+        {
           "name": "Validate key (public)",
           "request": {
             "method": "POST",
